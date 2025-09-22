@@ -3,6 +3,7 @@ import { MockPaymentGateway } from "@/lib/domain/payments";
 import { getServiceRoleClient } from "@/lib/supabase/server";
 import { resolvePaymentEvent } from "@/lib/domain/payment-webhook";
 import type { BookingStatus } from "@/lib/domain/types";
+import type { Json } from "@/types/database";
 
 type PaymentStatus = "initiated" | "succeeded" | "failed" | "refunded";
 
@@ -28,6 +29,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
+  let payload: Json;
+  try {
+    payload = JSON.parse(rawBody) as Json;
   let payload: unknown;
   try {
     payload = JSON.parse(rawBody);

@@ -160,6 +160,8 @@ export async function POST(request: NextRequest) {
     .insert({
       wallet_id: wallet.id,
       booking_id: booking.id,
+      change_credits: outcome.ledgerEntry?.changeCredits ?? -1,
+      description: outcome.ledgerEntry?.description ?? "Credit consumed for booking confirmation",
       change_credits: outcome.ledgerEntry?.changeCredits,
       description: outcome.ledgerEntry?.description,
     });

@@ -13,7 +13,6 @@ export class MockPaymentGateway implements PaymentGateway {
   async createTopupIntent(providerId: string, credits: number): Promise<{ checkoutUrl: string }> {
     return { checkoutUrl: `https://mockpay.local/topup?provider=${providerId}&credits=${credits}` };
   }
-  
   async createPerBookingIntent(
     bookingId: string,
     amountCents: number,

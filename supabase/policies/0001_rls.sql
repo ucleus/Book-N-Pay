@@ -1,4 +1,5 @@
 -- Enable row level security
+alter table public.users enable row level security;
 alter table public.providers enable row level security;
 alter table public.services enable row level security;
 alter table public.availability_rules enable row level security;
@@ -9,6 +10,10 @@ alter table public.wallet_ledger enable row level security;
 alter table public.notifications enable row level security;
 alter table public.payments enable row level security;
 alter table public.webhook_events enable row level security;
+alter table public.customers enable row level security;
+
+-- Deny all by default
+create policy users_deny_all on public.users for all using (false);
 
 -- Deny all by default
 create policy providers_deny_all on public.providers for all using (false);
@@ -21,10 +26,18 @@ create policy wallet_ledger_deny_all on public.wallet_ledger for all using (fals
 create policy notifications_deny_all on public.notifications for all using (false);
 create policy payments_deny_all on public.payments for all using (false);
 create policy webhook_events_deny_all on public.webhook_events for all using (false);
+create policy customers_deny_all on public.customers for all using (false);
+
+-- Users manage their own profile
+create policy users_self_manage
+  on public.users
+  for all using (auth.uid() = id)
+  with check (auth.uid() = id);
 
 -- Providers read/update their resources
 create policy providers_owner_access
   on public.providers
+  for all using (auth.uid() = user_id)
   for select using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 

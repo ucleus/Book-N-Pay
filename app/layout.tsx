@@ -25,6 +25,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a href="/#contact" className="hover:text-white">
                 Contact
               </a>
+              <a href="/login" className="rounded-md border border-slate-700 px-3 py-1.5 font-medium text-white transition hover:border-primary hover:bg-primary hover:text-slate-950">
+                Sign in
+              </a>
             </nav>
           </header>
           <main className="flex-1">{children}</main>

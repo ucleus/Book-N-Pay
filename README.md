@@ -21,6 +21,10 @@ Book-N-Pay is a lean SaaS for Jamaican service providers. Providers publish a pu
 2. Create a `.env.local` file with your Supabase keys:
 
    ```bash
+   NEXT_PUBLIC_APP_URL="http://localhost:3000"
+   SUPABASE_URL="https://<your-project>.supabase.co"
+   SUPABASE_ANON_KEY="<anon-key>"
+   SUPABASE_SERVICE_ROLE_KEY="<service-role-key>"
    SUPABASE_URL="https://your-project.supabase.co"
    SUPABASE_ANON_KEY="public-anon-key"
    SUPABASE_SERVICE_ROLE_KEY="service-role-key"
@@ -39,6 +43,12 @@ Book-N-Pay is a lean SaaS for Jamaican service providers. Providers publish a pu
    ```
 
    Visit `http://localhost:3000/demo` to explore the demo provider page if Supabase is not yet configured.
+
+## Authentication & Onboarding
+
+- Providers sign in from `/login` using passwordless email OTP. Configure your Supabase project to enable Email OTP under **Authentication → Providers**.
+- The first successful login automatically bootstraps a user profile row. Visiting `/onboarding` collects the provider display name, booking handle, phone number, and preferred currency.
+- Handles are normalized to URL-safe slugs and must be unique. The onboarding form prevents collisions and saves both the Supabase `users` and `providers` tables.
 
 ## Testing
 
