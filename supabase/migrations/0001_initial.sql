@@ -97,6 +97,7 @@ create table if not exists public.payments (
   amount_cents integer not null check (amount_cents >= 0),
   gateway text not null,
   gateway_ref text not null,
+  gateway_ref text,
   metadata jsonb,
   created_at timestamptz not null default now()
 );

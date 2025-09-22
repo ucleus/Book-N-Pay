@@ -143,6 +143,9 @@ export async function POST(request: NextRequest) {
       status: "requires_payment",
       checkoutUrl: outcome.checkoutUrl,
       paymentReference,
+    return NextResponse.json({
+      status: "requires_payment",
+      checkoutUrl: outcome.checkoutUrl,
       message: outcome.message,
     });
   }
