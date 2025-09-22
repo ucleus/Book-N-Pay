@@ -1,68 +1,53 @@
-import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
-import { createServerClient } from "@supabase/ssr";
-import type { Database } from "@/types/database";
+// supabase.ts
+import 'server-only'; // ensure this never gets bundled client-side
 
-const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
+import { cookies } from 'next/headers';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
+import type { Database } from '@/types/database';
 
-function ensureSupabaseUrl() {
-  if (!SUPABASE_URL) {
-    throw new Error("Supabase URL is not configured");
-  }
+const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY } = process.env;
 
+function ensureSupabaseUrl(): string {
+  if (!SUPABASE_URL) throw new Error('Supabase URL is not configured');
   return SUPABASE_URL;
 }
 
-function ensureAnonKey() {
-  if (!process.env.SUPABASE_ANON_KEY) {
-    throw new Error("Supabase anon key is not configured");
-  }
-
-  return process.env.SUPABASE_ANON_KEY;
+function ensureAnonKey(): string {
+  if (!SUPABASE_ANON_KEY) throw new Error('Supabase anon key is not configured');
+  return SUPABASE_ANON_KEY;
 }
 
-export function getServiceRoleClient() {
+/**
+ * Server-only client with the service role key.
+ * NEVER import or call this from client components.
+ */
+export function getServiceRoleClient(): SupabaseClient<Database> {
   if (!SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error("Supabase service role key is not configured");
+    throw new Error('Supabase service role key is not configured');
   }
-
   return createClient<Database>(ensureSupabaseUrl(), SUPABASE_SERVICE_ROLE_KEY, {
-=======
-import { createClient } from "@supabase/supabase-js";
-
-const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
-
-export function getServiceRoleClient() {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error("Supabase environment variables are not configured");
-  }
-
-  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: {
-      persistSession: false,
-    },
+    auth: { persistSession: false },
   });
 }
 
-export function getPublicClient() {
+/**
+ * Public client for server usage (anon key, no cookies).
+ * If you need auth session handling in RSC/route handlers, use getServerClient().
+ */
+export function getPublicServerClient(): SupabaseClient<Database> {
   return createClient<Database>(ensureSupabaseUrl(), ensureAnonKey(), {
-  if (!SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
-    throw new Error("Supabase environment variables are not configured");
-  }
-
-  return createClient(SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-    auth: {
-      persistSession: false,
-    },
+    auth: { persistSession: false },
   });
 }
 
-function createSupabaseServerClient() {
-  const supabaseUrl = ensureSupabaseUrl();
-  const supabaseAnonKey = ensureAnonKey();
+/**
+ * Server client (RSC/Route Handlers) with cookie bridging.
+ * Use this for authenticated server reads/writes with the user's session.
+ */
+export function getServerClient(): SupabaseClient<Database> {
   const cookieStore = cookies();
-
-  return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+  return createServerClient<Database>(ensureSupabaseUrl(), ensureAnonKey(), {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -76,18 +61,8 @@ function createSupabaseServerClient() {
   });
 }
 
-export function getRouteHandlerClient() {
-  return createSupabaseServerClient();
-}
-
-export function getServerComponentClient() {
-  return createSupabaseServerClient();
-}
-
-export function getServerActionClient() {
-  return createSupabaseServerClient();
-}
-
-export function getServerAuthClient() {
-  return createSupabaseServerClient();
-}
+// Backwards-compatible aliases if you like:
+export const getRouteHandlerClient = getServerClient;
+export const getServerComponentClient = getServerClient;
+export const getServerActionClient = getServerClient;
+export const getServerAuthClient = getServerClient;
