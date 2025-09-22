@@ -3,7 +3,7 @@ create extension if not exists "uuid-ossp";
 
 -- Users table
 create table if not exists public.users (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   email text unique not null,
   phone text,
   role text not null check (role in ('provider','customer','admin')),
@@ -12,7 +12,7 @@ create table if not exists public.users (
 
 -- Providers
 create table if not exists public.providers (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
   display_name text not null,
   handle text not null unique,
@@ -26,7 +26,7 @@ create index if not exists providers_user_id_idx on public.providers(user_id);
 
 -- Services
 create table if not exists public.services (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   provider_id uuid not null references public.providers(id) on delete cascade,
   name text not null,
   description text,
@@ -40,7 +40,7 @@ create index if not exists services_provider_id_idx on public.services(provider_
 
 -- Availability rules
 create table if not exists public.availability_rules (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   provider_id uuid not null references public.providers(id) on delete cascade,
   dow smallint not null check (dow between 0 and 6),
   start_time time not null,
@@ -53,7 +53,7 @@ create index if not exists availability_rules_provider_id_idx on public.availabi
 
 -- Blackout dates
 create table if not exists public.blackout_dates (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   provider_id uuid not null references public.providers(id) on delete cascade,
   day date not null,
   reason text,
@@ -63,7 +63,7 @@ create table if not exists public.blackout_dates (
 
 -- Customers
 create table if not exists public.customers (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   name text not null,
   email text unique not null,
   phone text,
@@ -72,7 +72,7 @@ create table if not exists public.customers (
 
 -- Bookings
 create table if not exists public.bookings (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   provider_id uuid not null references public.providers(id) on delete cascade,
   service_id uuid not null references public.services(id) on delete cascade,
   customer_id uuid not null references public.customers(id) on delete cascade,
@@ -90,7 +90,7 @@ create index if not exists bookings_start_at_idx on public.bookings(start_at);
 
 -- Payments
 create table if not exists public.payments (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   booking_id uuid references public.bookings(id) on delete set null,
   provider_id uuid not null references public.providers(id) on delete cascade,
   status text not null check (status in ('initiated','succeeded','failed','refunded')),
@@ -108,7 +108,7 @@ create unique index if not exists payments_gateway_ref_unique on public.payments
 
 -- Wallets
 create table if not exists public.wallets (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   provider_id uuid not null references public.providers(id) on delete cascade,
   balance_credits integer not null default 0,
   currency text not null default 'JMD',
@@ -118,7 +118,7 @@ create table if not exists public.wallets (
 
 -- Wallet ledger
 create table if not exists public.wallet_ledger (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   wallet_id uuid not null references public.wallets(id) on delete cascade,
   booking_id uuid references public.bookings(id) on delete set null,
   change_credits integer not null,
@@ -130,7 +130,7 @@ create index if not exists wallet_ledger_wallet_id_idx on public.wallet_ledger(w
 
 -- Notifications
 create table if not exists public.notifications (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   booking_id uuid references public.bookings(id) on delete cascade,
   channel text not null check (channel in ('email','whatsapp')),
   recipient text not null,
@@ -144,7 +144,7 @@ create index if not exists notifications_booking_id_idx on public.notifications(
 
 -- Audit helpers
 create table if not exists public.webhook_events (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   gateway text not null,
   external_id text not null,
   payload jsonb not null,
