@@ -55,6 +55,15 @@ npm run typecheck
 npm run lint
 ```
 
+## Pay-Per-Booking Fallback
+
+When a provider runs out of wallet credits, the booking confirmation API responds with `requires_payment`, a hosted checkout URL,
+and a `paymentReference`. The reference is persisted in the `payments` table and is required when reconciling payment webhooks.
+
+Send simulated gateway callbacks to `POST /api/payments/webhook` with JSON containing a `refId` and `status`. A `status` of
+`"succeeded"` marks the payment as complete, updates the booking to `confirmed`, and enqueues an email receipt notification for the
+customer.
+
 ## Supabase Policies
 
 All tables ship with deny-by-default RLS policies. Providers can only view and update rows they own, while the public booking page exposes limited read-only data for services, availability rules, and blackout dates. Review the SQL in `supabase/migrations/0001_initial.sql` and `supabase/policies/0001_rls.sql` before deployment.

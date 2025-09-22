@@ -96,6 +96,7 @@ create table if not exists public.payments (
   status text not null check (status in ('initiated','succeeded','failed','refunded')),
   amount_cents integer not null check (amount_cents >= 0),
   gateway text not null,
+  gateway_ref text not null,
   gateway_ref text,
   metadata jsonb,
   created_at timestamptz not null default now()
@@ -103,6 +104,7 @@ create table if not exists public.payments (
 
 create index if not exists payments_booking_id_idx on public.payments(booking_id);
 create index if not exists payments_provider_id_idx on public.payments(provider_id);
+create unique index if not exists payments_gateway_ref_unique on public.payments(gateway, gateway_ref);
 
 -- Wallets
 create table if not exists public.wallets (

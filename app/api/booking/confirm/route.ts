@@ -89,6 +89,60 @@ export async function POST(request: NextRequest) {
   });
 
   if (outcome.status === "requires_payment") {
+    const paymentReference = outcome.paymentReference ?? `mockpay_${booking.id}`;
+
+    const { data: existingPayment, error: existingPaymentError } = await supabase
+      .from("payments")
+      .select("id, status, metadata")
+      .eq("gateway", "mockpay")
+      .eq("gateway_ref", paymentReference)
+      .maybeSingle();
+
+    if (existingPaymentError) {
+      console.error(existingPaymentError);
+      return NextResponse.json({ error: "Unable to prepare payment" }, { status: 500 });
+    }
+
+    if (!existingPayment) {
+      const { error: paymentInsertError } = await supabase.from("payments").insert({
+        booking_id: booking.id,
+        provider_id: providerId,
+        status: "initiated",
+        amount_cents: service.base_price_cents,
+        gateway: "mockpay",
+        gateway_ref: paymentReference,
+        metadata: {
+          strategy: "per_booking",
+          checkoutUrl: outcome.checkoutUrl,
+        },
+      });
+
+      if (paymentInsertError) {
+        console.error(paymentInsertError);
+        return NextResponse.json({ error: "Unable to create payment" }, { status: 500 });
+      }
+    } else if (existingPayment.status === "initiated") {
+      const { error: paymentUpdateError } = await supabase
+        .from("payments")
+        .update({
+          amount_cents: service.base_price_cents,
+          metadata: {
+            strategy: "per_booking",
+            checkoutUrl: outcome.checkoutUrl,
+          },
+        })
+        .eq("id", existingPayment.id);
+
+      if (paymentUpdateError) {
+        console.error(paymentUpdateError);
+        return NextResponse.json({ error: "Unable to refresh payment" }, { status: 500 });
+      }
+    }
+
+    return NextResponse.json({
+      status: "requires_payment",
+      checkoutUrl: outcome.checkoutUrl,
+      paymentReference,
     return NextResponse.json({
       status: "requires_payment",
       checkoutUrl: outcome.checkoutUrl,

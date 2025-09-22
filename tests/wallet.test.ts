@@ -45,6 +45,7 @@ describe("confirmBookingHappyPath", () => {
       wallet: baseWallet,
       booking: baseBooking,
       paymentIntentProvider: {
+        createPerBookingIntent: vi.fn().mockResolvedValue({ checkoutUrl: "", reference: "" }),
         createPerBookingIntent: vi.fn(),
       },
       bookingAmountCents: 5000,
@@ -57,6 +58,9 @@ describe("confirmBookingHappyPath", () => {
 
   it("requests payment intent when credits depleted", async () => {
     const paymentIntentProvider = {
+      createPerBookingIntent: vi
+        .fn()
+        .mockResolvedValue({ checkoutUrl: "https://mockpay.local/checkout", reference: "mockpay_booking-1" }),
       createPerBookingIntent: vi.fn().mockResolvedValue({ checkoutUrl: "https://mockpay.local/checkout" }),
     };
 
@@ -70,5 +74,6 @@ describe("confirmBookingHappyPath", () => {
     expect(result.status).toBe("requires_payment");
     expect(paymentIntentProvider.createPerBookingIntent).toHaveBeenCalledWith(baseBooking.id, 5000);
     expect(result.checkoutUrl).toBe("https://mockpay.local/checkout");
+    expect(result.paymentReference).toBe("mockpay_booking-1");
   });
 });

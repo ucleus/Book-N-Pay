@@ -7,6 +7,8 @@ alter table public.bookings enable row level security;
 alter table public.wallets enable row level security;
 alter table public.wallet_ledger enable row level security;
 alter table public.notifications enable row level security;
+alter table public.payments enable row level security;
+alter table public.webhook_events enable row level security;
 
 -- Deny all by default
 create policy providers_deny_all on public.providers for all using (false);
@@ -17,6 +19,8 @@ create policy bookings_deny_all on public.bookings for all using (false);
 create policy wallets_deny_all on public.wallets for all using (false);
 create policy wallet_ledger_deny_all on public.wallet_ledger for all using (false);
 create policy notifications_deny_all on public.notifications for all using (false);
+create policy payments_deny_all on public.payments for all using (false);
+create policy webhook_events_deny_all on public.webhook_events for all using (false);
 
 -- Providers read/update their resources
 create policy providers_owner_access
@@ -86,6 +90,12 @@ create policy notifications_provider_access
   on public.notifications
   for select using (
     exists(select 1 from public.bookings b join public.providers p on b.provider_id = p.id where b.id = booking_id and p.user_id = auth.uid())
+  );
+
+create policy payments_provider_access
+  on public.payments
+  for select using (
+    exists(select 1 from public.providers p where p.id = provider_id and p.user_id = auth.uid())
   );
 
 -- Public booking page read access

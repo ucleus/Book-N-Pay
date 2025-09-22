@@ -11,10 +11,15 @@ export interface BookingConfirmationOutcome {
   wallet?: Wallet;
   ledgerEntry?: WalletLedgerEntry;
   checkoutUrl?: string;
+  paymentReference?: string;
   message: string;
 }
 
 export interface PaymentIntentProvider {
+  createPerBookingIntent(
+    bookingId: string,
+    amountCents: number,
+  ): Promise<{ checkoutUrl: string; reference: string }>;
   createPerBookingIntent(bookingId: string, amountCents: number): Promise<{ checkoutUrl: string }>;
 }
 
@@ -49,6 +54,7 @@ export async function confirmBookingHappyPath(params: {
   const { wallet, booking, paymentIntentProvider, bookingAmountCents } = params;
 
   if (wallet.balanceCredits < 1) {
+    const paymentIntent = await paymentIntentProvider.createPerBookingIntent(booking.id, bookingAmountCents);
     const paymentIntent = await paymentIntentProvider.createPerBookingIntent(
       booking.id,
       bookingAmountCents,
@@ -57,6 +63,7 @@ export async function confirmBookingHappyPath(params: {
     return {
       status: "requires_payment",
       checkoutUrl: paymentIntent.checkoutUrl,
+      paymentReference: paymentIntent.reference,
       message: "No credits remaining. Provider must complete checkout to confirm booking.",
     };
   }
