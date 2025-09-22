@@ -14,6 +14,8 @@ alter table public.customers enable row level security;
 
 -- Deny all by default
 create policy users_deny_all on public.users for all using (false);
+
+-- Deny all by default
 create policy providers_deny_all on public.providers for all using (false);
 create policy services_deny_all on public.services for all using (false);
 create policy availability_rules_deny_all on public.availability_rules for all using (false);
@@ -36,6 +38,7 @@ create policy users_self_manage
 create policy providers_owner_access
   on public.providers
   for all using (auth.uid() = user_id)
+  for select using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
 create policy services_owner_access

@@ -32,6 +32,9 @@ export async function POST(request: NextRequest) {
   let payload: Json;
   try {
     payload = JSON.parse(rawBody) as Json;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(rawBody);
   } catch (error) {
     console.error("Unable to parse webhook payload", error);
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });

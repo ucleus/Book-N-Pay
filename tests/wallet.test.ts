@@ -46,6 +46,7 @@ describe("confirmBookingHappyPath", () => {
       booking: baseBooking,
       paymentIntentProvider: {
         createPerBookingIntent: vi.fn().mockResolvedValue({ checkoutUrl: "", reference: "" }),
+        createPerBookingIntent: vi.fn(),
       },
       bookingAmountCents: 5000,
     });
@@ -60,6 +61,7 @@ describe("confirmBookingHappyPath", () => {
       createPerBookingIntent: vi
         .fn()
         .mockResolvedValue({ checkoutUrl: "https://mockpay.local/checkout", reference: "mockpay_booking-1" }),
+      createPerBookingIntent: vi.fn().mockResolvedValue({ checkoutUrl: "https://mockpay.local/checkout" }),
     };
 
     const result = await confirmBookingHappyPath({

@@ -4,6 +4,7 @@ export interface PaymentGateway {
     bookingId: string,
     amountCents: number,
   ): Promise<{ checkoutUrl: string; reference: string }>;
+  createPerBookingIntent(bookingId: string, amountCents: number): Promise<{ checkoutUrl: string }>;
   verifyWebhook(sig: string, rawBody: string): boolean;
   parseEvent(rawBody: string): { type: "payment.succeeded" | "payment.failed"; refId: string };
 }
@@ -12,7 +13,6 @@ export class MockPaymentGateway implements PaymentGateway {
   async createTopupIntent(providerId: string, credits: number): Promise<{ checkoutUrl: string }> {
     return { checkoutUrl: `https://mockpay.local/topup?provider=${providerId}&credits=${credits}` };
   }
-
   async createPerBookingIntent(
     bookingId: string,
     amountCents: number,
@@ -25,6 +25,13 @@ export class MockPaymentGateway implements PaymentGateway {
   }
 
   verifyWebhook(_sig: string, _rawBody: string): boolean {
+    
+  async createPerBookingIntent(bookingId: string, amountCents: number): Promise<{ checkoutUrl: string }> {
+    return { checkoutUrl: `https://mockpay.local/booking/${bookingId}?amount=${amountCents}` };
+  }
+
+  verifyWebhook(): boolean {
+  
     return true;
   }
 

@@ -25,6 +25,9 @@ Book-N-Pay is a lean SaaS for Jamaican service providers. Providers publish a pu
    SUPABASE_URL="https://<your-project>.supabase.co"
    SUPABASE_ANON_KEY="<anon-key>"
    SUPABASE_SERVICE_ROLE_KEY="<service-role-key>"
+   SUPABASE_URL="https://your-project.supabase.co"
+   SUPABASE_ANON_KEY="public-anon-key"
+   SUPABASE_SERVICE_ROLE_KEY="service-role-key"
    ```
 
 3. Run database migrations using the Supabase CLI:

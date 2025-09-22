@@ -20,6 +20,7 @@ export interface PaymentIntentProvider {
     bookingId: string,
     amountCents: number,
   ): Promise<{ checkoutUrl: string; reference: string }>;
+  createPerBookingIntent(bookingId: string, amountCents: number): Promise<{ checkoutUrl: string }>;
 }
 
 export function consumeCreditForBooking(wallet: Wallet, booking: Booking, now: Date = new Date()): CreditConsumptionResult {
@@ -54,6 +55,10 @@ export async function confirmBookingHappyPath(params: {
 
   if (wallet.balanceCredits < 1) {
     const paymentIntent = await paymentIntentProvider.createPerBookingIntent(booking.id, bookingAmountCents);
+    const paymentIntent = await paymentIntentProvider.createPerBookingIntent(
+      booking.id,
+      bookingAmountCents,
+    );
 
     return {
       status: "requires_payment",

@@ -143,6 +143,9 @@ export async function POST(request: NextRequest) {
       status: "requires_payment",
       checkoutUrl: outcome.checkoutUrl,
       paymentReference,
+    return NextResponse.json({
+      status: "requires_payment",
+      checkoutUrl: outcome.checkoutUrl,
       message: outcome.message,
     });
   }
@@ -159,6 +162,8 @@ export async function POST(request: NextRequest) {
       booking_id: booking.id,
       change_credits: outcome.ledgerEntry?.changeCredits ?? -1,
       description: outcome.ledgerEntry?.description ?? "Credit consumed for booking confirmation",
+      change_credits: outcome.ledgerEntry?.changeCredits,
+      description: outcome.ledgerEntry?.description,
     });
 
   const updateBooking = supabase
