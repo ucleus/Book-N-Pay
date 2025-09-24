@@ -69,10 +69,36 @@ export async function POST(request: NextRequest) {
   }
 
   if (!["pending", "confirmed"].includes(booking.status)) {
+    return NextResponse.json({ error: "UNSUPPORTED_STATUS" }, { status: 409 });
+  }
+
+  const nextStart = new Date(newStartAt);
+  if (Number.isNaN(nextStart.getTime())) {
+    return NextResponse.json({ error: "INVALID_START" }, { status: 400 });
+  }
+
+  if (isBefore(nextStart, new Date())) {
+    return NextResponse.json({ error: "START_IN_PAST" }, { status: 409 });
+  }
+
+  const { data: service, error: serviceError } = await supabase
+    .from("services")
+    .select("id, provider_id, duration_min, name")
+    .eq("id", booking.service_id)
+    .maybeSingle();
+
+  if (serviceError) {
+    console.error(serviceError);
+    return NextResponse.json({ error: "Unable to load service" }, { status: 500 });
+  }
+
     return NextResponse.json({ error: "UNSUPPORTED_STATUS"
   if (!service || service.provider_id !== providerId) {
     return NextResponse.json({ error: "SERVICE_NOT_FOUND" }, { status: 404 });
   }
+
+  const dayStart = startOfDay(nextStart);
+  const dayEnd = addDays(dayStart, 1);
 
   const daySt
   const { data: rules, error: rulesError } = await supabase
