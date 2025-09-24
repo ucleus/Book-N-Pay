@@ -5,6 +5,7 @@ import {
   consumeCreditForBooking,
   refundCreditForCancellation,
 } from "@/lib/domain/wallet";
+import { addCreditsToWallet, confirmBookingHappyPath, consumeCreditForBooking } from "@/lib/domain/wallet";
 import type { Booking, Wallet } from "@/lib/domain/types";
 
 const baseWallet: Wallet = {
