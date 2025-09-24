@@ -213,6 +213,7 @@ export async function POST(request: NextRequest) {
   const updateBooking = supabase
     .from("bookings")
     .update({ status: "confirmed", pay_mode: "credit", updated_at: new Date().toISOString() })
+    .update({ status: "confirmed", updated_at: new Date().toISOString() })
     .eq("id", booking.id);
 
   const [walletResult, ledgerResult, bookingResult] = await Promise.all([
