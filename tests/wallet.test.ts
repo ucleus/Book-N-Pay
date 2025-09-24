@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { confirmBookingHappyPath, consumeCreditForBooking } from "@/lib/domain/wallet";
+import { addCreditsToWallet, confirmBookingHappyPath, consumeCreditForBooking } from "@/lib/domain/wallet";
 import type { Booking, Wallet } from "@/lib/domain/types";
 
 const baseWallet: Wallet = {
@@ -36,6 +36,25 @@ describe("consumeCreditForBooking", () => {
     expect(() => consumeCreditForBooking({ ...baseWallet, balanceCredits: 0 }, baseBooking)).toThrowError(
       "INSUFFICIENT_CREDITS",
     );
+  });
+});
+
+describe("addCreditsToWallet", () => {
+  it("adds credits and records a topup ledger entry", () => {
+    const { wallet, ledgerEntry } = addCreditsToWallet({ ...baseWallet, balanceCredits: 1 }, 3, new Date("2024-01-01T00:00:00Z"));
+
+    expect(wallet.balanceCredits).toBe(4);
+    expect(ledgerEntry).toMatchObject({
+      walletId: baseWallet.id,
+      changeCredits: 3,
+      description: "Top up 3 credits",
+    });
+  });
+
+  it("rejects invalid credit amounts", () => {
+    expect(() => addCreditsToWallet(baseWallet, 0)).toThrowError("INVALID_TOPUP_CREDITS");
+    expect(() => addCreditsToWallet(baseWallet, -2)).toThrowError("INVALID_TOPUP_CREDITS");
+    expect(() => addCreditsToWallet(baseWallet, 1.5)).toThrowError("INVALID_TOPUP_CREDITS");
   });
 });
 

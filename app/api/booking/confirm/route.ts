@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { addMinutes } from "date-fns";
-import { getServiceRoleClient } from "@/lib/supabase/server";
+import { getRouteHandlerClient, getServiceRoleClient } from "@/lib/supabase/server";
 import { confirmBookingSchema } from "@/lib/validation/booking";
 import { confirmBookingHappyPath } from "@/lib/domain/wallet";
 import { MockPaymentGateway } from "@/lib/domain/payments";
@@ -13,6 +13,39 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 });
   }
 
+  const { bookingId, providerId } = parsed.data;
+
+  const authClient = getRouteHandlerClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await authClient.auth.getUser();
+
+  if (authError) {
+    console.error(authError);
+    return NextResponse.json({ error: "AUTH_ERROR" }, { status: 500 });
+  }
+
+  if (!user) {
+    return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  }
+
+  const { data: provider, error: providerLookupError } = await authClient
+    .from("providers")
+    .select("id")
+    .eq("id", providerId)
+    .maybeSingle();
+
+  if (providerLookupError) {
+    console.error(providerLookupError);
+    return NextResponse.json({ error: "PROVIDER_LOOKUP_FAILED" }, { status: 500 });
+  }
+
+  if (!provider) {
+    return NextResponse.json({ error: "PROVIDER_NOT_FOUND" }, { status: 404 });
+  }
+
   let supabase;
   try {
     supabase = getServiceRoleClient();
@@ -20,8 +53,6 @@ export async function POST(request: NextRequest) {
     console.error(error);
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
-
-  const { bookingId, providerId } = parsed.data;
 
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
