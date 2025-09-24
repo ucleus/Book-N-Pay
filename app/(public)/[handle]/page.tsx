@@ -1,9 +1,7 @@
 import { notFound } from "next/navigation";
 import { getPublicClient } from "@/lib/supabase/server";
 import type { ProviderProfile, Service, AvailabilityRule, BlackoutDate } from "@/lib/domain/types";
-import { generateBookableSlots } from "@/lib/domain/availability";
-import { ServiceList } from "@/components/service-list";
-import { AvailabilitySlotPicker } from "@/components/availability-slot-picker";
+import { PublicBookingWidget } from "@/components/public-booking-widget";
 
 interface ProviderPageData {
   provider: ProviderProfile;
@@ -121,16 +119,6 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
     notFound();
   }
 
-  const primaryService = data.services[0];
-  const slots = primaryService
-    ? generateBookableSlots({
-        rules: data.availability,
-        blackoutDates: data.blackoutDates,
-        serviceDurationMin: primaryService.durationMin,
-        days: 14,
-      })
-    : [];
-
   return (
     <div className="space-y-8">
       <header className="space-y-4">
@@ -138,18 +126,13 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
         {data.provider.bio ? <p className="text-slate-300">{data.provider.bio}</p> : null}
       </header>
 
-      <section className="grid gap-6 lg:grid-cols-5">
-        <div className="space-y-4 lg:col-span-3">
-          <h2 className="text-xl font-semibold text-white">Services</h2>
-          <ServiceList services={data.services} currency={data.provider.currency} />
-        </div>
-        <div className="space-y-4 lg:col-span-2">
-          <h2 className="text-xl font-semibold text-white">Available Slots</h2>
-          <AvailabilitySlotPicker slots={slots} />
-          <p className="text-xs text-slate-400">
-            After you request a slot we’ll send confirmation by email and WhatsApp once your provider approves the booking.
-          </p>
-        </div>
+      <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-6 shadow-lg shadow-black/20">
+        <PublicBookingWidget
+          provider={data.provider}
+          services={data.services}
+          availability={data.availability}
+          blackoutDates={data.blackoutDates}
+        />
       </section>
     </div>
   );
