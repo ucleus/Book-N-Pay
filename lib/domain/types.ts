@@ -6,6 +6,8 @@ export interface ProviderProfile {
   handle: string;
   bio: string | null;
   currency: string;
+  rescheduleFeeCents: number;
+  lateCancelHours: number;
 }
 
 export interface Service {
@@ -43,6 +45,7 @@ export interface Booking {
   startAt: string;
   endAt: string;
   status: BookingStatus;
+  payMode?: "credit" | "per_booking" | null;
 }
 
 export interface Wallet {

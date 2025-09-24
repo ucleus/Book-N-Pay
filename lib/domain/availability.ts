@@ -1,5 +1,5 @@
 import { addDays, addMinutes, isBefore, isEqual, parseISO, set } from "date-fns";
-import type { AvailabilityRule, BlackoutDate } from "./types";
+import type { AvailabilityRule, BlackoutDate, BookingStatus } from "./types";
 
 export interface AvailabilitySlot {
   start: string;
@@ -76,4 +76,36 @@ export function generateBookableSlots(options: SlotGenerationOptions): Availabil
   }
 
   return slots;
+}
+
+export interface ExistingBookingWindow {
+  startAt: string;
+  endAt: string;
+  status: BookingStatus;
+}
+
+export interface SlotFilterOptions {
+  slots: AvailabilitySlot[];
+  bookings: ExistingBookingWindow[];
+  now?: Date;
+}
+
+export function filterSlotsByBookings({ slots, bookings, now }: SlotFilterOptions): AvailabilitySlot[] {
+  const reference = now ?? new Date();
+
+  return slots.filter((slot) => {
+    const slotStart = parseISO(slot.start);
+    const slotEnd = parseISO(slot.end);
+
+    if (isBefore(slotEnd, reference)) {
+      return false;
+    }
+
+    return bookings.every((booking) => {
+      const bookingStart = parseISO(booking.startAt);
+      const bookingEnd = parseISO(booking.endAt);
+
+      return bookingEnd.getTime() <= slotStart.getTime() || bookingStart.getTime() >= slotEnd.getTime();
+    });
+  });
 }

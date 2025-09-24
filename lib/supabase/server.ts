@@ -41,6 +41,8 @@ export function getPublicServerClient(): SupabaseClient<Database> {
   });
 }
 
+export const getPublicClient = getPublicServerClient;
+
 /**
  * Server client (RSC/Route Handlers) with cookie bridging.
  * Use this for authenticated server reads/writes with the user's session.
