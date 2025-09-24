@@ -39,6 +39,8 @@ export type Database = {
           bio: string | null;
           currency: string;
           payout_meta: Json | null;
+          reschedule_fee_cents: number;
+          late_cancel_hours: number;
           created_at: string;
         };
         Insert: {
@@ -49,6 +51,8 @@ export type Database = {
           bio?: string | null;
           currency?: string;
           payout_meta?: Json | null;
+          reschedule_fee_cents?: number;
+          late_cancel_hours?: number;
           created_at?: string;
         };
         Update: {
@@ -57,6 +61,8 @@ export type Database = {
           bio?: string | null;
           currency?: string;
           payout_meta?: Json | null;
+          reschedule_fee_cents?: number;
+          late_cancel_hours?: number;
         };
       };
       customers: {
@@ -164,6 +170,7 @@ export type Database = {
           start_at: string;
           end_at: string | null;
           status: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
+          pay_mode: "credit" | "per_booking" | null;
           notes: string | null;
           created_at: string;
           updated_at: string;
@@ -176,6 +183,7 @@ export type Database = {
           start_at: string;
           end_at?: string | null;
           status?: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
+          pay_mode?: "credit" | "per_booking" | null;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -184,6 +192,7 @@ export type Database = {
           start_at?: string;
           end_at?: string | null;
           status?: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
+          pay_mode?: "credit" | "per_booking" | null;
           notes?: string | null;
           updated_at?: string;
         };
