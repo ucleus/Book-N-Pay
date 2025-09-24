@@ -3,6 +3,8 @@ node_modules
 .env.local
 .env*
 !.env.example
+tsconfig.tsbuildinfo
 *.log
 supabase/.branches
 .supabase
+backups/

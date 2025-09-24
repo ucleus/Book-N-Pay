@@ -15,6 +15,8 @@ export type Database = {
           email: string;
           phone: string | null;
           role: "provider" | "customer" | "admin";
+          two_factor_secret: string | null;
+          two_factor_enabled: boolean;
           created_at: string;
         };
         Insert: {
@@ -22,12 +24,16 @@ export type Database = {
           email: string;
           phone?: string | null;
           role: "provider" | "customer" | "admin";
+          two_factor_secret?: string | null;
+          two_factor_enabled?: boolean;
           created_at?: string;
         };
         Update: {
           email?: string;
           phone?: string | null;
           role?: "provider" | "customer" | "admin";
+          two_factor_secret?: string | null;
+          two_factor_enabled?: boolean;
         };
       };
       providers: {
@@ -39,6 +45,8 @@ export type Database = {
           bio: string | null;
           currency: string;
           payout_meta: Json | null;
+          reschedule_fee_cents: number;
+          late_cancel_hours: number;
           created_at: string;
         };
         Insert: {
@@ -49,6 +57,8 @@ export type Database = {
           bio?: string | null;
           currency?: string;
           payout_meta?: Json | null;
+          reschedule_fee_cents?: number;
+          late_cancel_hours?: number;
           created_at?: string;
         };
         Update: {
@@ -57,6 +67,8 @@ export type Database = {
           bio?: string | null;
           currency?: string;
           payout_meta?: Json | null;
+          reschedule_fee_cents?: number;
+          late_cancel_hours?: number;
         };
       };
       customers: {
@@ -164,6 +176,7 @@ export type Database = {
           start_at: string;
           end_at: string | null;
           status: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
+          pay_mode: "credit" | "per_booking" | null;
           notes: string | null;
           created_at: string;
           updated_at: string;
@@ -176,6 +189,7 @@ export type Database = {
           start_at: string;
           end_at?: string | null;
           status?: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
+          pay_mode?: "credit" | "per_booking" | null;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -184,6 +198,7 @@ export type Database = {
           start_at?: string;
           end_at?: string | null;
           status?: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
+          pay_mode?: "credit" | "per_booking" | null;
           notes?: string | null;
           updated_at?: string;
         };
