@@ -43,6 +43,7 @@ export interface Booking {
   startAt: string;
   endAt: string;
   status: BookingStatus;
+  payMode?: "credit" | "per_booking" | null;
 }
 
 export interface Wallet {
