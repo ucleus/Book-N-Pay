@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { addMinutes } from "date-fns";
-import { getServiceRoleClient } from "@/lib/supabase/server";
+import { getRouteHandlerClient, getServiceRoleClient } from "@/lib/supabase/server";
 import { confirmBookingSchema } from "@/lib/validation/booking";
 import { confirmBookingHappyPath } from "@/lib/domain/wallet";
 import { MockPaymentGateway } from "@/lib/domain/payments";
@@ -13,6 +13,39 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 });
   }
 
+  const { bookingId, providerId } = parsed.data;
+
+  const authClient = getRouteHandlerClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await authClient.auth.getUser();
+
+  if (authError) {
+    console.error(authError);
+    return NextResponse.json({ error: "AUTH_ERROR" }, { status: 500 });
+  }
+
+  if (!user) {
+    return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  }
+
+  const { data: provider, error: providerLookupError } = await authClient
+    .from("providers")
+    .select("id")
+    .eq("id", providerId)
+    .maybeSingle();
+
+  if (providerLookupError) {
+    console.error(providerLookupError);
+    return NextResponse.json({ error: "PROVIDER_LOOKUP_FAILED" }, { status: 500 });
+  }
+
+  if (!provider) {
+    return NextResponse.json({ error: "PROVIDER_NOT_FOUND" }, { status: 404 });
+  }
+
   let supabase;
   try {
     supabase = getServiceRoleClient();
@@ -21,11 +54,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
-  const { bookingId, providerId } = parsed.data;
-
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
-    .select("id, provider_id, service_id, customer_id, start_at, end_at, status")
+    .select("id, provider_id, service_id, customer_id, start_at, end_at, status, pay_mode")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -68,6 +99,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Wallet not provisioned" }, { status: 400 });
   }
 
+  const endAt = booking.end_at ?? addMinutes(new Date(booking.start_at), service.duration_min).toISOString();
+
   const outcome = await confirmBookingHappyPath({
     wallet: {
       id: wallet.id,
@@ -81,8 +114,9 @@ export async function POST(request: NextRequest) {
       serviceId: booking.service_id,
       customerId: booking.customer_id,
       startAt: booking.start_at,
-      endAt: booking.end_at ?? addMinutes(new Date(booking.start_at), service.duration_min).toISOString(),
+      endAt,
       status: booking.status,
+      payMode: booking.pay_mode as "credit" | "per_booking" | null,
     },
     paymentIntentProvider: new MockPaymentGateway(),
     bookingAmountCents: service.base_price_cents,
@@ -93,7 +127,7 @@ export async function POST(request: NextRequest) {
 
     const { data: existingPayment, error: existingPaymentError } = await supabase
       .from("payments")
-      .select("id, status, metadata")
+      .select("id, status")
       .eq("gateway", "mockpay")
       .eq("gateway_ref", paymentReference)
       .maybeSingle();
@@ -139,36 +173,46 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (booking.pay_mode !== "per_booking") {
+      const { error: bookingUpdateError } = await supabase
+        .from("bookings")
+        .update({ pay_mode: "per_booking", updated_at: new Date().toISOString() })
+        .eq("id", booking.id);
+
+      if (bookingUpdateError) {
+        console.error(bookingUpdateError);
+        return NextResponse.json({ error: "Unable to flag booking for payment" }, { status: 500 });
+      }
+    }
+
     return NextResponse.json({
       status: "requires_payment",
       checkoutUrl: outcome.checkoutUrl,
       paymentReference,
-    return NextResponse.json({
-      status: "requires_payment",
-      checkoutUrl: outcome.checkoutUrl,
       message: outcome.message,
     });
   }
 
+  if (!outcome.wallet || !outcome.ledgerEntry) {
+    console.error("Wallet confirmation outcome missing wallet or ledger entry");
+    return NextResponse.json({ error: "Failed to confirm booking" }, { status: 500 });
+  }
+
   const updateWallet = supabase
     .from("wallets")
-    .update({ balance_credits: outcome.wallet?.balanceCredits })
+    .update({ balance_credits: outcome.wallet.balanceCredits })
     .eq("id", wallet.id);
 
-  const insertLedger = supabase
-    .from("wallet_ledger")
-    .insert({
-      wallet_id: wallet.id,
-      booking_id: booking.id,
-      change_credits: outcome.ledgerEntry?.changeCredits ?? -1,
-      description: outcome.ledgerEntry?.description ?? "Credit consumed for booking confirmation",
-      change_credits: outcome.ledgerEntry?.changeCredits,
-      description: outcome.ledgerEntry?.description,
-    });
+  const insertLedger = supabase.from("wallet_ledger").insert({
+    wallet_id: wallet.id,
+    booking_id: booking.id,
+    change_credits: outcome.ledgerEntry.changeCredits,
+    description: outcome.ledgerEntry.description,
+  });
 
   const updateBooking = supabase
     .from("bookings")
-    .update({ status: "confirmed" })
+    .update({ status: "confirmed", pay_mode: "credit", updated_at: new Date().toISOString() })
     .eq("id", booking.id);
 
   const [walletResult, ledgerResult, bookingResult] = await Promise.all([

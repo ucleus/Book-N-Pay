@@ -32,9 +32,6 @@ export async function POST(request: NextRequest) {
   let payload: Json;
   try {
     payload = JSON.parse(rawBody) as Json;
-  let payload: unknown;
-  try {
-    payload = JSON.parse(rawBody);
   } catch (error) {
     console.error("Unable to parse webhook payload", error);
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
@@ -185,7 +182,7 @@ export async function POST(request: NextRequest) {
   if (resolution.shouldConfirmBooking && booking) {
     const { error: updateBookingError } = await supabase
       .from("bookings")
-      .update({ status: "confirmed", updated_at: new Date().toISOString() })
+      .update({ status: "confirmed", pay_mode: "per_booking", updated_at: new Date().toISOString() })
       .eq("id", booking.id);
 
     if (updateBookingError) {
