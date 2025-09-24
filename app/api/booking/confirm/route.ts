@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
   const { data: provider, error: providerLookupError } = await authClient
     .from("providers")
     .select("id, user_id, display_name")
+    .select("id")
     .eq("id", providerId)
     .maybeSingle();
 
@@ -230,7 +231,7 @@ export async function POST(request: NextRequest) {
   }
 
   const updateWallet = supabase
-    .from("wallets")
+    .from("wallets"
     .update({ balance_credits: outcome.wallet.balanceCredits })
     .eq("id", wallet.id);
 
@@ -243,7 +244,8 @@ export async function POST(request: NextRequest) {
 
   const updateBooking = supabase
     .from("bookings")
-    .update({ status: "confirmed", pay_mode: "credit", updated_at: new Date().toISOString() })
+    .update({ status: "confirmed", pay_mode: "credit", updated_at: new 
+    .update({ status: "confirmed", updated_at: new Date().toISOString() })
     .eq("id", booking.id);
 
   const [walletResult, ledgerResult, bookingResult] = await Promise.all([

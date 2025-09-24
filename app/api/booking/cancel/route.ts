@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
   const { data: provider, error: providerError } = await authClient
     .from("providers")
     .select("id, late_cancel_hours, display_name")
+    .select("id, late_cancel_hours")
     .eq("id", providerId)
     .maybeSingle();
 
@@ -218,6 +219,7 @@ export async function POST(request: NextRequest) {
     const { data: customer, error: customerError } = await supabase
       .from("customers")
       .select("email, name, phone")
+      .select("email, name")
       .eq("id", booking.customer_id)
       .maybeSingle();
 
@@ -230,6 +232,8 @@ export async function POST(request: NextRequest) {
 
     if (customer?.email) {
       notifications.push({
+    if (customer?.email) {
+      const { error: notificationError } = await supabase.from("notifications").insert({
         booking_id: booking.id,
         channel: "email",
         recipient: customer.email,
@@ -264,6 +268,8 @@ export async function POST(request: NextRequest) {
 
     if (notifications.length > 0) {
       const { error: notificationError } = await supabase.from("notifications").insert(notifications);
+        },
+      });
 
       if (notificationError) {
         console.error(notificationError);

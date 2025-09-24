@@ -232,6 +232,20 @@ export async function POST(request: NextRequest) {
   }
 
   const { error: notificationError } = await supabase.from("notifications").insert(notifications);
+  const { error: notificationError } = await supabase.from("notifications").insert({
+    booking_id: booking.id,
+    channel: "email",
+    recipient: customer.email,
+    payload: {
+      type: "booking_customer_pending",
+      bookingId: booking.id,
+      providerHandle: provider.handle,
+      providerName: provider.display_name ?? provider.handle,
+      serviceName: service.name,
+      startAt: booking.start_at,
+      customerName: customer.name,
+    },
+  });
 
   if (notificationError) {
     console.error(notificationError);
