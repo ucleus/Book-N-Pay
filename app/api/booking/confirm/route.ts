@@ -68,6 +68,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Wallet not provisioned" }, { status: 400 });
   }
 
+  const endAt = booking.end_at ?? addMinutes(new Date(booking.start_at), service.duration_min).toISOString();
+
   const outcome = await confirmBookingHappyPath({
     wallet: {
       id: wallet.id,
@@ -81,7 +83,7 @@ export async function POST(request: NextRequest) {
       serviceId: booking.service_id,
       customerId: booking.customer_id,
       startAt: booking.start_at,
-      endAt: booking.end_at ?? addMinutes(new Date(booking.start_at), service.duration_min).toISOString(),
+      endAt,
       status: booking.status,
     },
     paymentIntentProvider: new MockPaymentGateway(),
@@ -93,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     const { data: existingPayment, error: existingPaymentError } = await supabase
       .from("payments")
-      .select("id, status, metadata")
+      .select("id, status")
       .eq("gateway", "mockpay")
       .eq("gateway_ref", paymentReference)
       .maybeSingle();
@@ -143,32 +145,30 @@ export async function POST(request: NextRequest) {
       status: "requires_payment",
       checkoutUrl: outcome.checkoutUrl,
       paymentReference,
-    return NextResponse.json({
-      status: "requires_payment",
-      checkoutUrl: outcome.checkoutUrl,
       message: outcome.message,
     });
   }
 
+  if (!outcome.wallet || !outcome.ledgerEntry) {
+    console.error("Wallet confirmation outcome missing wallet or ledger entry");
+    return NextResponse.json({ error: "Failed to confirm booking" }, { status: 500 });
+  }
+
   const updateWallet = supabase
     .from("wallets")
-    .update({ balance_credits: outcome.wallet?.balanceCredits })
+    .update({ balance_credits: outcome.wallet.balanceCredits })
     .eq("id", wallet.id);
 
-  const insertLedger = supabase
-    .from("wallet_ledger")
-    .insert({
-      wallet_id: wallet.id,
-      booking_id: booking.id,
-      change_credits: outcome.ledgerEntry?.changeCredits ?? -1,
-      description: outcome.ledgerEntry?.description ?? "Credit consumed for booking confirmation",
-      change_credits: outcome.ledgerEntry?.changeCredits,
-      description: outcome.ledgerEntry?.description,
-    });
+  const insertLedger = supabase.from("wallet_ledger").insert({
+    wallet_id: wallet.id,
+    booking_id: booking.id,
+    change_credits: outcome.ledgerEntry.changeCredits,
+    description: outcome.ledgerEntry.description,
+  });
 
   const updateBooking = supabase
     .from("bookings")
-    .update({ status: "confirmed" })
+    .update({ status: "confirmed", updated_at: new Date().toISOString() })
     .eq("id", booking.id);
 
   const [walletResult, ledgerResult, bookingResult] = await Promise.all([

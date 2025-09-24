@@ -20,3 +20,11 @@ export const confirmBookingSchema = z.object({
 });
 
 export type ConfirmBookingInput = z.infer<typeof confirmBookingSchema>;
+
+export const checkAvailabilitySchema = z.object({
+  providerHandle: z.string().min(2),
+  serviceId: z.string().uuid(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+export type CheckAvailabilityInput = z.infer<typeof checkAvailabilitySchema>;
