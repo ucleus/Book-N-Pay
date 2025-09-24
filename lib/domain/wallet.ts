@@ -20,6 +20,11 @@ export interface CreditTopupOutcome {
   ledgerEntry: WalletLedgerEntry;
 }
 
+export interface CreditRefundOutcome {
+  wallet: Wallet;
+  ledgerEntry: WalletLedgerEntry;
+}
+
 export interface PaymentIntentProvider {
   createPerBookingIntent(
     bookingId: string,
@@ -65,6 +70,28 @@ export function consumeCreditForBooking(wallet: Wallet, booking: Booking, now: D
     bookingId: booking.id,
     changeCredits: -1,
     description: "Credit consumed for booking confirmation",
+    createdAt: now.toISOString(),
+  };
+
+  return { wallet: updatedWallet, ledgerEntry };
+}
+
+export function refundCreditForCancellation(
+  wallet: Wallet,
+  booking: Booking,
+  now: Date = new Date(),
+): CreditRefundOutcome {
+  const updatedWallet: Wallet = {
+    ...wallet,
+    balanceCredits: wallet.balanceCredits + 1,
+  };
+
+  const ledgerEntry: WalletLedgerEntry = {
+    id: randomUUID(),
+    walletId: wallet.id,
+    bookingId: booking.id,
+    changeCredits: 1,
+    description: "Credit refunded after cancellation",
     createdAt: now.toISOString(),
   };
 

@@ -17,6 +17,8 @@ const fallbackProvider: ProviderPageData = {
     handle: "demo",
     bio: "Kingston-based barber specializing in sharp fades and clean beard trims.",
     currency: "JMD",
+    rescheduleFeeCents: 0,
+    lateCancelHours: 12,
   },
   services: [
     {
@@ -52,7 +54,7 @@ async function loadProviderData(handle: string): Promise<ProviderPageData | null
     const { data, error } = await supabase
       .from("providers")
       .select(
-        `id, display_name, handle, bio, currency,
+        `id, display_name, handle, bio, currency, reschedule_fee_cents, late_cancel_hours,
          services:services(id, provider_id, name, description, duration_min, base_price_cents, is_active),
          availability_rules(id, provider_id, dow, start_time, end_time),
          blackout_dates(id, provider_id, day, reason)`
@@ -76,6 +78,8 @@ async function loadProviderData(handle: string): Promise<ProviderPageData | null
         handle: data.handle,
         bio: data.bio,
         currency: data.currency,
+        rescheduleFeeCents: data.reschedule_fee_cents ?? 0,
+        lateCancelHours: data.late_cancel_hours ?? 12,
       },
       services: (data.services ?? [])
         .filter((service: any) => service.is_active)

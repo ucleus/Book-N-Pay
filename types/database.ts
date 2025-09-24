@@ -39,6 +39,8 @@ export type Database = {
           bio: string | null;
           currency: string;
           payout_meta: Json | null;
+          reschedule_fee_cents: number;
+          late_cancel_hours: number;
           created_at: string;
         };
         Insert: {
@@ -49,6 +51,8 @@ export type Database = {
           bio?: string | null;
           currency?: string;
           payout_meta?: Json | null;
+          reschedule_fee_cents?: number;
+          late_cancel_hours?: number;
           created_at?: string;
         };
         Update: {
@@ -57,6 +61,8 @@ export type Database = {
           bio?: string | null;
           currency?: string;
           payout_meta?: Json | null;
+          reschedule_fee_cents?: number;
+          late_cancel_hours?: number;
         };
       };
       customers: {

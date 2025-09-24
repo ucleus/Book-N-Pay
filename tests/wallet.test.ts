@@ -1,4 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import {
+  addCreditsToWallet,
+  confirmBookingHappyPath,
+  consumeCreditForBooking,
+  refundCreditForCancellation,
+} from "@/lib/domain/wallet";
 import { addCreditsToWallet, confirmBookingHappyPath, consumeCreditForBooking } from "@/lib/domain/wallet";
 import type { Booking, Wallet } from "@/lib/domain/types";
 
@@ -55,6 +61,24 @@ describe("addCreditsToWallet", () => {
     expect(() => addCreditsToWallet(baseWallet, 0)).toThrowError("INVALID_TOPUP_CREDITS");
     expect(() => addCreditsToWallet(baseWallet, -2)).toThrowError("INVALID_TOPUP_CREDITS");
     expect(() => addCreditsToWallet(baseWallet, 1.5)).toThrowError("INVALID_TOPUP_CREDITS");
+  });
+});
+
+describe("refundCreditForCancellation", () => {
+  it("returns a credit to the wallet with a ledger record", () => {
+    const { wallet, ledgerEntry } = refundCreditForCancellation(
+      { ...baseWallet, balanceCredits: 0 },
+      baseBooking,
+      new Date("2024-02-01T00:00:00Z"),
+    );
+
+    expect(wallet.balanceCredits).toBe(1);
+    expect(ledgerEntry).toMatchObject({
+      walletId: baseWallet.id,
+      bookingId: baseBooking.id,
+      changeCredits: 1,
+      description: "Credit refunded after cancellation",
+    });
   });
 });
 

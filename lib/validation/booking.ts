@@ -21,6 +21,25 @@ export const confirmBookingSchema = z.object({
 
 export type ConfirmBookingInput = z.infer<typeof confirmBookingSchema>;
 
+export const rescheduleBookingSchema = z.object({
+  bookingId: z.string().uuid(),
+  providerId: z.string().uuid(),
+  newStartAt: z.string().datetime(),
+  chargeCustomerFee: z.boolean().optional(),
+  note: z.string().max(500).optional(),
+});
+
+export type RescheduleBookingInput = z.infer<typeof rescheduleBookingSchema>;
+
+export const cancelBookingSchema = z.object({
+  bookingId: z.string().uuid(),
+  providerId: z.string().uuid(),
+  reason: z.string().max(500).optional(),
+  cancelledBy: z.enum(["provider", "customer"]).optional(),
+});
+
+export type CancelBookingInput = z.infer<typeof cancelBookingSchema>;
+
 export const checkAvailabilitySchema = z.object({
   providerHandle: z.string().min(2),
   serviceId: z.string().uuid(),
