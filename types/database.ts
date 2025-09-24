@@ -164,6 +164,7 @@ export type Database = {
           start_at: string;
           end_at: string | null;
           status: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
+          pay_mode: "credit" | "per_booking" | null;
           notes: string | null;
           created_at: string;
           updated_at: string;
@@ -176,6 +177,7 @@ export type Database = {
           start_at: string;
           end_at?: string | null;
           status?: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
+          pay_mode?: "credit" | "per_booking" | null;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -184,6 +186,7 @@ export type Database = {
           start_at?: string;
           end_at?: string | null;
           status?: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
+          pay_mode?: "credit" | "per_booking" | null;
           notes?: string | null;
           updated_at?: string;
         };

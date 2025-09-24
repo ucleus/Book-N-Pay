@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
-    .select("id, provider_id, service_id, customer_id, start_at, end_at, status")
+    .select("id, provider_id, service_id, customer_id, start_at, end_at, status, pay_mode")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -116,6 +116,7 @@ export async function POST(request: NextRequest) {
       startAt: booking.start_at,
       endAt,
       status: booking.status,
+      payMode: booking.pay_mode as "credit" | "per_booking" | null,
     },
     paymentIntentProvider: new MockPaymentGateway(),
     bookingAmountCents: service.base_price_cents,
@@ -172,6 +173,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (booking.pay_mode !== "per_booking") {
+      const { error: bookingUpdateError } = await supabase
+        .from("bookings")
+        .update({ pay_mode: "per_booking", updated_at: new Date().toISOString() })
+        .eq("id", booking.id);
+
+      if (bookingUpdateError) {
+        console.error(bookingUpdateError);
+        return NextResponse.json({ error: "Unable to flag booking for payment" }, { status: 500 });
+      }
+    }
+
     return NextResponse.json({
       status: "requires_payment",
       checkoutUrl: outcome.checkoutUrl,
@@ -199,6 +212,7 @@ export async function POST(request: NextRequest) {
 
   const updateBooking = supabase
     .from("bookings")
+    .update({ status: "confirmed", pay_mode: "credit", updated_at: new Date().toISOString() })
     .update({ status: "confirmed", updated_at: new Date().toISOString() })
     .eq("id", booking.id);
 

@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
   if (resolution.shouldConfirmBooking && booking) {
     const { error: updateBookingError } = await supabase
       .from("bookings")
-      .update({ status: "confirmed", updated_at: new Date().toISOString() })
+      .update({ status: "confirmed", pay_mode: "per_booking", updated_at: new Date().toISOString() })
       .eq("id", booking.id);
 
     if (updateBookingError) {
