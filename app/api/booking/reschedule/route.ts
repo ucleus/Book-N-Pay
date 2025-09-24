@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getRouteHandlerClient, getServiceRoleClient } from "@/lib/supabase/server";
 import { rescheduleBookingSchema } from "@/lib/validation/booking";
 import { filterSlotsByBookings, generateBookableSlots } from "@/lib/domain/availability";
+import type { Database } from "@/types/database";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -30,6 +31,7 @@ export async function POST(request: NextRequest) {
 
   const { data: provider, error: providerError } = await authClient
     .from("providers")
+    .select("id, reschedule_fee_cents, currency, display_name")
     .select("id, reschedule_fee_cents, currency")
     .eq("id", providerId)
     .maybeSingle();
@@ -67,36 +69,12 @@ export async function POST(request: NextRequest) {
   }
 
   if (!["pending", "confirmed"].includes(booking.status)) {
-    return NextResponse.json({ error: "UNSUPPORTED_STATUS" }, { status: 409 });
-  }
-
-  const nextStart = new Date(newStartAt);
-  if (Number.isNaN(nextStart.getTime())) {
-    return NextResponse.json({ error: "INVALID_START" }, { status: 400 });
-  }
-
-  if (isBefore(nextStart, new Date())) {
-    return NextResponse.json({ error: "START_IN_PAST" }, { status: 409 });
-  }
-
-  const { data: service, error: serviceError } = await supabase
-    .from("services")
-    .select("id, provider_id, duration_min")
-    .eq("id", booking.service_id)
-    .maybeSingle();
-
-  if (serviceError) {
-    console.error(serviceError);
-    return NextResponse.json({ error: "Unable to load service" }, { status: 500 });
-  }
-
+    return NextResponse.json({ error: "UNSUPPORTED_STATUS"
   if (!service || service.provider_id !== providerId) {
     return NextResponse.json({ error: "SERVICE_NOT_FOUND" }, { status: 404 });
   }
 
-  const dayStart = startOfDay(nextStart);
-  const dayEnd = addDays(dayStart, 1);
-
+  const daySt
   const { data: rules, error: rulesError } = await supabase
     .from("availability_rules")
     .select("id, provider_id, dow, start_time, end_time")
@@ -226,6 +204,7 @@ export async function POST(request: NextRequest) {
   if (booking.customer_id) {
     const { data: customer, error: customerError } = await supabase
       .from("customers")
+      .select("email, name, phone")
       .select("email, name")
       .eq("id", booking.customer_id)
       .maybeSingle();
@@ -235,6 +214,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unable to load customer" }, { status: 500 });
     }
 
+    const notifications: Database["public"]["Tables"]["notifications"]["Insert"][] = [];
+
+    const payload = {
+      type: "booking_customer_rescheduled" as const,
+      previousStartAt: booking.start_at,
+      newStartAt: requestedSlot.start,
+      feeCharged,
+      providerName: provider.display_name,
+      serviceName: service.name,
+      customerName: customer?.name ?? undefined,
+    };
+
+    if (customer?.email) {
+      notifications.push({
+        booking_id: booking.id,
+        channel: "email",
+        recipient: customer.email,
+        payload,
+      });
+    }
+
+    if (customer?.phone) {
+      notifications.push({
+        booking_id: booking.id,
+        channel: "whatsapp",
+        recipient: customer.phone,
+        payload,
+      });
+    }
+
+    if (notifications.length > 0) {
+      const { error: notificationError } = await supabase.from("notifications").insert(notifications);
     if (customer?.email) {
       const { error: notificationError } = await supabase.from("notifications").insert({
         booking_id: booking.id,

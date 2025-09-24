@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server";
 import { createBookingSchema } from "@/lib/validation/booking";
 import { filterSlotsByBookings, generateBookableSlots } from "@/lib/domain/availability";
+import type { Database } from "@/types/database";
 
 interface BookingWindowRow {
   start_at: string;
@@ -196,6 +197,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unable to create booking" }, { status: 500 });
   }
 
+  const notifications: Database["public"]["Tables"]["notifications"]["Insert"][] = [
+    {
+      booking_id: booking.id,
+      channel: "email" as const,
+      recipient: customer.email,
+      payload: {
+        type: "booking_customer_pending" as const,
+        bookingId: booking.id,
+        providerHandle: provider.handle,
+        providerName: provider.display_name ?? provider.handle,
+        serviceName: service.name,
+        startAt: booking.start_at,
+        customerName: customer.name,
+      },
+    },
+  ];
+
+  if (customerRow.phone) {
+    notifications.push({
+      booking_id: booking.id,
+      channel: "whatsapp" as const,
+      recipient: customerRow.phone,
+      payload: {
+        type: "booking_customer_pending" as const,
+        bookingId: booking.id,
+        providerHandle: provider.handle,
+        providerName: provider.display_name ?? provider.handle,
+        serviceName: service.name,
+        startAt: booking.start_at,
+        customerName: customer.name,
+      },
+    });
+  }
+
+  const { error: notificationError } = await supabase.from("notifications").insert(notifications);
   const { error: notificationError } = await supabase.from("notifications").insert({
     booking_id: booking.id,
     channel: "email",

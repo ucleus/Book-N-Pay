@@ -4,6 +4,7 @@ import { getRouteHandlerClient, getServiceRoleClient } from "@/lib/supabase/serv
 import { confirmBookingSchema } from "@/lib/validation/booking";
 import { confirmBookingHappyPath } from "@/lib/domain/wallet";
 import { MockPaymentGateway } from "@/lib/domain/payments";
+import type { Database } from "@/types/database";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
 
   const { data: provider, error: providerLookupError } = await authClient
     .from("providers")
+    .select("id, user_id, display_name")
     .select("id")
     .eq("id", providerId)
     .maybeSingle();
@@ -46,12 +48,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "PROVIDER_NOT_FOUND" }, { status: 404 });
   }
 
+  if (provider.user_id !== user.id) {
+    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  }
+
   let supabase;
   try {
     supabase = getServiceRoleClient();
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
+
+  const { data: providerUser, error: providerUserError } = await supabase
+    .from("users")
+    .select("email, phone")
+    .eq("id", provider.user_id)
+    .maybeSingle();
+
+  if (providerUserError) {
+    console.error(providerUserError);
+    return NextResponse.json({ error: "Unable to load provider contact" }, { status: 500 });
+  }
+
+  if (!providerUser) {
+    return NextResponse.json({ error: "Provider contact missing" }, { status: 500 });
   }
 
   const { data: booking, error: bookingError } = await supabase
@@ -73,9 +94,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Booking already confirmed" });
   }
 
+  const { data: customer, error: customerError } = await supabase
+    .from("customers")
+    .select("id, email, name, phone")
+    .eq("id", booking.customer_id)
+    .maybeSingle();
+
+  if (customerError) {
+    console.error(customerError);
+    return NextResponse.json({ error: "Unable to load customer" }, { status: 500 });
+  }
+
   const { data: service, error: serviceError } = await supabase
     .from("services")
-    .select("id, base_price_cents, duration_min")
+    .select("id, base_price_cents, duration_min, name")
     .eq("id", booking.service_id)
     .maybeSingle();
 
@@ -199,7 +231,7 @@ export async function POST(request: NextRequest) {
   }
 
   const updateWallet = supabase
-    .from("wallets")
+    .from("wallets"
     .update({ balance_credits: outcome.wallet.balanceCredits })
     .eq("id", wallet.id);
 
@@ -212,7 +244,7 @@ export async function POST(request: NextRequest) {
 
   const updateBooking = supabase
     .from("bookings")
-    .update({ status: "confirmed", pay_mode: "credit", updated_at: new Date().toISOString() })
+    .update({ status: "confirmed", pay_mode: "credit", updated_at: new 
     .update({ status: "confirmed", updated_at: new Date().toISOString() })
     .eq("id", booking.id);
 
@@ -225,6 +257,79 @@ export async function POST(request: NextRequest) {
   if (walletResult.error || ledgerResult.error || bookingResult.error) {
     console.error(walletResult.error || ledgerResult.error || bookingResult.error);
     return NextResponse.json({ error: "Failed to persist confirmation" }, { status: 500 });
+  }
+
+  const notifications: Database["public"]["Tables"]["notifications"]["Insert"][] = [];
+
+  if (customer?.email) {
+    notifications.push({
+      booking_id: booking.id,
+      channel: "email",
+      recipient: customer.email,
+      payload: {
+        type: "booking_customer_confirmed",
+        bookingId: booking.id,
+        providerName: provider.display_name,
+        serviceName: service.name,
+        startAt: booking.start_at,
+        customerName: customer.name ?? undefined,
+      },
+    });
+  }
+
+  if (customer?.phone) {
+    notifications.push({
+      booking_id: booking.id,
+      channel: "whatsapp",
+      recipient: customer.phone,
+      payload: {
+        type: "booking_customer_confirmed",
+        bookingId: booking.id,
+        providerName: provider.display_name,
+        serviceName: service.name,
+        startAt: booking.start_at,
+        customerName: customer.name ?? undefined,
+      },
+    });
+  }
+
+  const creditsRemaining = outcome.wallet.balanceCredits;
+
+  if (creditsRemaining <= 2 && providerUser) {
+    if (providerUser.email) {
+      notifications.push({
+        booking_id: booking.id,
+        channel: "email",
+        recipient: providerUser.email,
+        payload: {
+          type: "provider_low_credits_warning",
+          providerName: provider.display_name,
+          creditsRemaining,
+        },
+      });
+    }
+
+    if (providerUser.phone) {
+      notifications.push({
+        booking_id: booking.id,
+        channel: "whatsapp",
+        recipient: providerUser.phone,
+        payload: {
+          type: "provider_low_credits_warning",
+          providerName: provider.display_name,
+          creditsRemaining,
+        },
+      });
+    }
+  }
+
+  if (notifications.length > 0) {
+    const { error: notificationError } = await supabase.from("notifications").insert(notifications);
+
+    if (notificationError) {
+      console.error(notificationError);
+      return NextResponse.json({ error: "Failed to queue notifications" }, { status: 500 });
+    }
   }
 
   return NextResponse.json({

@@ -4,6 +4,7 @@ import { cancelBookingSchema } from "@/lib/validation/booking";
 import { evaluateCancellationPolicy } from "@/lib/domain/booking-policy";
 import { refundCreditForCancellation } from "@/lib/domain/wallet";
 import type { Booking } from "@/lib/domain/types";
+import type { Database } from "@/types/database";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
 
   const { data: provider, error: providerError } = await authClient
     .from("providers")
+    .select("id, late_cancel_hours, display_name")
     .select("id, late_cancel_hours")
     .eq("id", providerId)
     .maybeSingle();
@@ -67,6 +69,17 @@ export async function POST(request: NextRequest) {
 
   if (!booking || booking.provider_id !== providerId) {
     return NextResponse.json({ error: "BOOKING_NOT_FOUND" }, { status: 404 });
+  }
+
+  const { data: service, error: serviceError } = await supabase
+    .from("services")
+    .select("id, name")
+    .eq("id", booking.service_id)
+    .maybeSingle();
+
+  if (serviceError) {
+    console.error(serviceError);
+    return NextResponse.json({ error: "Unable to load service" }, { status: 500 });
   }
 
   if (!["pending", "confirmed"].includes(booking.status)) {
@@ -205,6 +218,7 @@ export async function POST(request: NextRequest) {
   if (booking.customer_id) {
     const { data: customer, error: customerError } = await supabase
       .from("customers")
+      .select("email, name, phone")
       .select("email, name")
       .eq("id", booking.customer_id)
       .maybeSingle();
@@ -214,6 +228,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unable to load customer" }, { status: 500 });
     }
 
+    const notifications: Database["public"]["Tables"]["notifications"]["Insert"][] = [];
+
+    if (customer?.email) {
+      notifications.push({
     if (customer?.email) {
       const { error: notificationError } = await supabase.from("notifications").insert({
         booking_id: booking.id,
@@ -224,6 +242,32 @@ export async function POST(request: NextRequest) {
           cancelledBy: actor,
           startAt: booking.start_at,
           refundIssued,
+          providerName: provider.display_name,
+          serviceName: service?.name ?? "your booking",
+          customerName: customer.name ?? undefined,
+        },
+      });
+    }
+
+    if (customer?.phone) {
+      notifications.push({
+        booking_id: booking.id,
+        channel: "whatsapp",
+        recipient: customer.phone,
+        payload: {
+          type: "booking_customer_cancelled",
+          cancelledBy: actor,
+          startAt: booking.start_at,
+          refundIssued,
+          providerName: provider.display_name,
+          serviceName: service?.name ?? "your booking",
+          customerName: customer.name ?? undefined,
+        },
+      });
+    }
+
+    if (notifications.length > 0) {
+      const { error: notificationError } = await supabase.from("notifications").insert(notifications);
         },
       });
 
