@@ -15,12 +15,38 @@ export interface BookingConfirmationOutcome {
   message: string;
 }
 
+export interface CreditTopupOutcome {
+  wallet: Wallet;
+  ledgerEntry: WalletLedgerEntry;
+}
+
 export interface PaymentIntentProvider {
   createPerBookingIntent(
     bookingId: string,
     amountCents: number,
   ): Promise<{ checkoutUrl: string; reference: string }>;
-  createPerBookingIntent(bookingId: string, amountCents: number): Promise<{ checkoutUrl: string }>;
+}
+
+export function addCreditsToWallet(wallet: Wallet, credits: number, now: Date = new Date()): CreditTopupOutcome {
+  if (!Number.isInteger(credits) || credits <= 0) {
+    throw new Error("INVALID_TOPUP_CREDITS");
+  }
+
+  const updatedWallet: Wallet = {
+    ...wallet,
+    balanceCredits: wallet.balanceCredits + credits,
+  };
+
+  const ledgerEntry: WalletLedgerEntry = {
+    id: randomUUID(),
+    walletId: wallet.id,
+    bookingId: undefined,
+    changeCredits: credits,
+    description: credits === 1 ? "Top up 1 credit" : `Top up ${credits} credits`,
+    createdAt: now.toISOString(),
+  };
+
+  return { wallet: updatedWallet, ledgerEntry };
 }
 
 export function consumeCreditForBooking(wallet: Wallet, booking: Booking, now: Date = new Date()): CreditConsumptionResult {
@@ -55,10 +81,6 @@ export async function confirmBookingHappyPath(params: {
 
   if (wallet.balanceCredits < 1) {
     const paymentIntent = await paymentIntentProvider.createPerBookingIntent(booking.id, bookingAmountCents);
-    const paymentIntent = await paymentIntentProvider.createPerBookingIntent(
-      booking.id,
-      bookingAmountCents,
-    );
 
     return {
       status: "requires_payment",
