@@ -1,10 +1,16 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { sanitizeOtpCode } from "@/lib/utils/sanitize";
+
+interface EmailOtpFormState {
+  step: "request" | "verify";
+  message?: string;
+  error?: string;
+}
 
 export function EmailOtpForm() {
-  const [message, setMessage] = useState<string>();
-  const [error, setError] = useState<string>();
+  const [state, setState] = useState<EmailOtpFormState>({ step: "request" });
   const [email, setEmail] = useState("");
   const [isSubmitting, setSubmitting] = useState(false);
 
@@ -12,14 +18,12 @@ export function EmailOtpForm() {
     event.preventDefault();
 
     if (!email) {
-      setError("Email is required");
-      setMessage(undefined);
+      setState({ step: "request", error: "Email is required" });
       return;
     }
 
     setSubmitting(true);
-    setError(undefined);
-    setMessage(undefined);
+    setState({ step: "request" });
 
     try {
       const response = await fetch("/api/auth/email-otp", {
@@ -33,13 +37,98 @@ export function EmailOtpForm() {
         throw new Error(body.error ?? "Unable to send code");
       }
 
-      setMessage("We sent a sign-in link to your email. Follow the link to continue.");
+      setState({ step: "verify", message: "We sent a 6-digit code to your email." });
     } catch (error) {
       console.error(error);
-      setError(error instanceof Error ? error.message : "Unable to send code");
+      setState({ step: "request", error: error instanceof Error ? error.message : "Unable to send code" });
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function verifyOtp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const token = sanitizeOtpCode(String(formData.get("token") ?? ""));
+
+    if (token.length !== 6) {
+      setState((prev) => ({ ...prev, error: "Enter the 6-digit code from your email." }));
+      return;
+    }
+
+    setSubmitting(true);
+    setState((prev) => ({ ...prev, error: undefined, message: undefined }));
+
+    try {
+      const response = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, token }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "Verification failed" }));
+        throw new Error(body.error ?? "Verification failed");
+      }
+
+      window.location.href = "/onboarding";
+    } catch (error) {
+      console.error(error);
+      setState((prev) => ({ ...prev, error: error instanceof Error ? error.message : "Verification failed" }));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (state.step === "verify") {
+    return (
+      <div className="mx-auto max-w-md space-y-6 rounded-lg bg-slate-900 p-6 shadow-lg">
+        <header className="space-y-2 text-center">
+          <h1 className="text-2xl font-semibold text-white">Enter Verification Code</h1>
+          <p className="text-sm text-slate-400">
+            Enter the 6-digit code we sent to <span className="font-medium text-white">{email}</span>
+          </p>
+        </header>
+
+        <form onSubmit={verifyOtp} className="space-y-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-slate-200" htmlFor="token">
+              Verification code
+            </label>
+            <input
+              id="token"
+              name="token"
+              type="text"
+              required
+              maxLength={6}
+              placeholder="123456"
+              className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
+          </div>
+
+          {state.error ? <p className="text-sm text-rose-400">{state.error}</p> : null}
+          {state.message ? <p className="text-sm text-emerald-400">{state.message}</p> : null}
+
+          <div className="space-y-2">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full rounded-md bg-primary px-3 py-2 text-sm font-semibold text-slate-950 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isSubmitting ? "Verifying..." : "Verify code"}
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => setState({ step: "request" })}
+              className="w-full rounded-md border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white"
+            >
+              Back to email entry
+            </button>
+          </div>
+        </form>
+      </div>
+    );
   }
 
   return (
@@ -68,15 +157,15 @@ export function EmailOtpForm() {
           />
         </div>
 
-        {error ? <p className="text-sm text-rose-400">{error}</p> : null}
-        {message ? <p className="text-sm text-emerald-400">{message}</p> : null}
+        {state.error ? <p className="text-sm text-rose-400">{state.error}</p> : null}
+        {state.message ? <p className="text-sm text-emerald-400">{state.message}</p> : null}
 
         <button
           type="submit"
           disabled={isSubmitting}
           className="w-full rounded-md bg-primary px-3 py-2 text-sm font-semibold text-slate-950 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          Send magic link
+          {isSubmitting ? "Sending..." : "Send verification code"}
         </button>
       </form>
     </div>
