@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-
 import { sanitizeOtpCode } from "@/lib/utils/sanitize";
 
 interface EmailOtpFormState {
@@ -81,6 +80,57 @@ export function EmailOtpForm() {
     }
   }
 
+  if (state.step === "verify") {
+    return (
+      <div className="mx-auto max-w-md space-y-6 rounded-lg bg-slate-900 p-6 shadow-lg">
+        <header className="space-y-2 text-center">
+          <h1 className="text-2xl font-semibold text-white">Enter Verification Code</h1>
+          <p className="text-sm text-slate-400">
+            Enter the 6-digit code we sent to <span className="font-medium text-white">{email}</span>
+          </p>
+        </header>
+
+        <form onSubmit={verifyOtp} className="space-y-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-slate-200" htmlFor="token">
+              Verification code
+            </label>
+            <input
+              id="token"
+              name="token"
+              type="text"
+              required
+              maxLength={6}
+              placeholder="123456"
+              className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
+          </div>
+
+          {state.error ? <p className="text-sm text-rose-400">{state.error}</p> : null}
+          {state.message ? <p className="text-sm text-emerald-400">{state.message}</p> : null}
+
+          <div className="space-y-2">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full rounded-md bg-primary px-3 py-2 text-sm font-semibold text-slate-950 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isSubmitting ? "Verifying..." : "Verify code"}
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => setState({ step: "request" })}
+              className="w-full rounded-md border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white"
+            >
+              Back to email entry
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-md space-y-6 rounded-lg bg-slate-900 p-6 shadow-lg">
       <header className="space-y-2 text-center">
@@ -90,7 +140,7 @@ export function EmailOtpForm() {
         </p>
       </header>
 
-      <form onSubmit={state.step === "request" ? requestOtp : verifyOtp} className="space-y-4">
+      <form onSubmit={requestOtp} className="space-y-4">
         <div className="space-y-2">
           <label className="block text-sm font-medium text-slate-200" htmlFor="email">
             Email address
@@ -104,30 +154,8 @@ export function EmailOtpForm() {
             onChange={(event) => setEmail(event.currentTarget.value.trim().toLowerCase())}
             placeholder="you@example.com"
             className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
-            disabled={state.step === "verify"}
           />
         </div>
-
-        {state.step === "verify" ? (
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-200" htmlFor="token">
-              6-digit code
-            </label>
-            <input
-              id="token"
-              name="token"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder="123456"
-              className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
-              maxLength={6}
-              autoFocus
-            />
-            <p className="text-xs text-slate-500">
-              Didn&apos;t get it? Check your spam folder or request a new code.
-            </p>
-          </div>
-        ) : null}
 
         {state.error ? <p className="text-sm text-rose-400">{state.error}</p> : null}
         {state.message ? <p className="text-sm text-emerald-400">{state.message}</p> : null}
@@ -137,20 +165,9 @@ export function EmailOtpForm() {
           disabled={isSubmitting}
           className="w-full rounded-md bg-primary px-3 py-2 text-sm font-semibold text-slate-950 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {state.step === "request" ? "Send code" : "Verify & continue"}
+          {isSubmitting ? "Sending..." : "Send verification code"}
         </button>
       </form>
-
-      {state.step === "verify" ? (
-        <button
-          type="button"
-          onClick={() => setState({ step: "request" })}
-          className="text-xs font-medium text-slate-400 underline hover:text-slate-200"
-          disabled={isSubmitting}
-        >
-          Use a different email
-        </button>
-      ) : null}
     </div>
   );
 }
