@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
   const { data: provider, error: providerError } = await authClient
     .from("providers")
     .select("id, reschedule_fee_cents, currency, display_name")
+    .select("id, reschedule_fee_cents, currency")
     .eq("id", providerId)
     .maybeSingle();
 
@@ -91,6 +92,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unable to load service" }, { status: 500 });
   }
 
+    return NextResponse.json({ error: "UNSUPPORTED_STATUS"
   if (!service || service.provider_id !== providerId) {
     return NextResponse.json({ error: "SERVICE_NOT_FOUND" }, { status: 404 });
   }
@@ -98,6 +100,7 @@ export async function POST(request: NextRequest) {
   const dayStart = startOfDay(nextStart);
   const dayEnd = addDays(dayStart, 1);
 
+  const daySt
   const { data: rules, error: rulesError } = await supabase
     .from("availability_rules")
     .select("id, provider_id, dow, start_time, end_time")
@@ -228,6 +231,7 @@ export async function POST(request: NextRequest) {
     const { data: customer, error: customerError } = await supabase
       .from("customers")
       .select("email, name, phone")
+      .select("email, name")
       .eq("id", booking.customer_id)
       .maybeSingle();
 
@@ -268,6 +272,18 @@ export async function POST(request: NextRequest) {
 
     if (notifications.length > 0) {
       const { error: notificationError } = await supabase.from("notifications").insert(notifications);
+    if (customer?.email) {
+      const { error: notificationError } = await supabase.from("notifications").insert({
+        booking_id: booking.id,
+        channel: "email",
+        recipient: customer.email,
+        payload: {
+          type: "booking_customer_rescheduled",
+          previousStartAt: booking.start_at,
+          newStartAt: requestedSlot.start,
+          feeCharged,
+        },
+      });
 
       if (notificationError) {
         console.error(notificationError);

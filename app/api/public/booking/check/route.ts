@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
         },
       },
     );
+    return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 });
   }
 
   let supabase;
@@ -94,11 +95,16 @@ export async function POST(request: NextRequest) {
     ...baseHeaders,
     "X-RateLimit-Remaining": `${rateResult.remaining}`,
   } satisfies Record<string, string>;
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
+
+  const { providerHandle, serviceId, date } = parsed.data;
 
   const { data: provider, error: providerError } = await supabase
     .from("providers")
     .select("id, handle")
     .eq("handle", sanitizedHandle)
+    .eq("handle", providerHandle)
     .maybeSingle();
 
   if (providerError) {
@@ -108,6 +114,11 @@ export async function POST(request: NextRequest) {
 
   if (!provider) {
     return NextResponse.json({ error: "Provider not found" }, { status: 404, headers: successHeaders });
+    return NextResponse.json({ error: "Unable to load provider" }, { status: 500 });
+  }
+
+  if (!provider) {
+    return NextResponse.json({ error: "Provider not found" }, { status: 404 });
   }
 
   const { data: service, error: serviceError } = await supabase
@@ -123,6 +134,11 @@ export async function POST(request: NextRequest) {
 
   if (!service || service.provider_id !== provider.id || !service.is_active) {
     return NextResponse.json({ error: "Service not available" }, { status: 404, headers: successHeaders });
+    return NextResponse.json({ error: "Unable to load service" }, { status: 500 });
+  }
+
+  if (!service || service.provider_id !== provider.id || !service.is_active) {
+    return NextResponse.json({ error: "Service not available" }, { status: 404 });
   }
 
   const { data: rules, error: rulesError } = await supabase
@@ -133,6 +149,7 @@ export async function POST(request: NextRequest) {
   if (rulesError) {
     console.error(rulesError);
     return NextResponse.json({ error: "Unable to load availability" }, { status: 500, headers: successHeaders });
+    return NextResponse.json({ error: "Unable to load availability" }, { status: 500 });
   }
 
   const { data: blackoutDates, error: blackoutError } = await supabase
@@ -149,6 +166,11 @@ export async function POST(request: NextRequest) {
 
   if (!rules || rules.length === 0) {
     return NextResponse.json({ slots: [] }, { headers: successHeaders });
+    return NextResponse.json({ error: "Unable to load blackout dates" }, { status: 500 });
+  }
+
+  if (!rules || rules.length === 0) {
+    return NextResponse.json({ slots: [] });
   }
 
   const dayStart = new Date(`${date}T00:00:00.000Z`);
@@ -175,6 +197,7 @@ export async function POST(request: NextRequest) {
 
   if (baseSlots.length === 0) {
     return NextResponse.json({ slots: [] }, { headers: successHeaders });
+    return NextResponse.json({ slots: [] });
   }
 
   const { data: bookings, error: bookingsError } = await supabase
@@ -189,6 +212,7 @@ export async function POST(request: NextRequest) {
   if (bookingsError) {
     console.error(bookingsError);
     return NextResponse.json({ error: "Unable to load bookings" }, { status: 500, headers: successHeaders });
+    return NextResponse.json({ error: "Unable to load bookings" }, { status: 500 });
   }
 
   const availableSlots = filterSlotsByBookings({
@@ -201,4 +225,5 @@ export async function POST(request: NextRequest) {
   });
 
   return NextResponse.json({ slots: availableSlots }, { headers: successHeaders });
+  return NextResponse.json({ slots: availableSlots });
 }
