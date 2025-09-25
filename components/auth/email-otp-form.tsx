@@ -2,6 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 
+import { sanitizeOtpCode } from "@/lib/utils/sanitize";
+
 interface EmailOtpFormState {
   step: "request" | "verify";
   message?: string;
@@ -48,9 +50,9 @@ export function EmailOtpForm() {
   async function verifyOtp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const token = String(formData.get("token") ?? "").trim();
+    const token = sanitizeOtpCode(String(formData.get("token") ?? ""));
 
-    if (!token) {
+    if (token.length !== 6) {
       setState((prev) => ({ ...prev, error: "Enter the 6-digit code from your email." }));
       return;
     }
