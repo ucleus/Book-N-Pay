@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   }
 
+  // Fixed: Removed duplicate .select() and kept all needed fields
   const { data: provider, error: providerError } = await authClient
     .from("providers")
     .select("id, reschedule_fee_cents, currency, display_name")

@@ -97,6 +97,12 @@ export default async function DashboardPage() {
         >
           Manage bookings
         </Link>
+      <header className="space-y-2">
+        <h1 className="text-3xl font-semibold text-white">Dashboard overview</h1>
+        <p className="text-sm text-slate-400">
+          Welcome back{provider.display_name ? `, ${provider.display_name}` : ""}. Here’s the current pulse of your
+          bookings.
+        </p>
       </header>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
