@@ -15,6 +15,8 @@ export type Database = {
           email: string;
           phone: string | null;
           role: "provider" | "customer" | "admin";
+          two_factor_secret: string | null;
+          two_factor_enabled: boolean;
           created_at: string;
         };
         Insert: {
@@ -22,12 +24,16 @@ export type Database = {
           email: string;
           phone?: string | null;
           role: "provider" | "customer" | "admin";
+          two_factor_secret?: string | null;
+          two_factor_enabled?: boolean;
           created_at?: string;
         };
         Update: {
           email?: string;
           phone?: string | null;
           role?: "provider" | "customer" | "admin";
+          two_factor_secret?: string | null;
+          two_factor_enabled?: boolean;
         };
       };
       providers: {

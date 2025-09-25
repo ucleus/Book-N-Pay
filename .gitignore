@@ -7,3 +7,4 @@ tsconfig.tsbuildinfo
 *.log
 supabase/.branches
 .supabase
+backups/

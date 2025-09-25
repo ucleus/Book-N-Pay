@@ -4,6 +4,12 @@ import { getServiceRoleClient } from "@/lib/supabase/server";
 import { checkAvailabilitySchema } from "@/lib/validation/booking";
 import { filterSlotsByBookings, generateBookableSlots } from "@/lib/domain/availability";
 import type { BookingStatus } from "@/lib/domain/types";
+import { applyRateLimit } from "@/lib/server/rate-limit";
+import { sanitizeHandle } from "@/lib/utils/sanitize";
+import { getRequestIp } from "@/lib/utils/request";
+
+const CHECK_RATE_LIMIT_WINDOW_MS = 60_000;
+const CHECK_RATE_LIMIT_LIMIT = 30;
 
 interface BookingRow {
   start_at: string;
@@ -16,6 +22,60 @@ export async function POST(request: NextRequest) {
   const parsed = checkAvailabilitySchema.safeParse(body);
 
   if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid request", details: parsed.error.flatten() },
+      {
+        status: 400,
+        headers: {
+          "X-RateLimit-Limit": `${CHECK_RATE_LIMIT_LIMIT}`,
+          "X-RateLimit-Remaining": `${CHECK_RATE_LIMIT_LIMIT}`,
+          "X-RateLimit-Window": `${Math.ceil(CHECK_RATE_LIMIT_WINDOW_MS / 1000)}`,
+        },
+      },
+    );
+  }
+
+  const sanitizedHandle = sanitizeHandle(parsed.data.providerHandle);
+
+  if (sanitizedHandle !== parsed.data.providerHandle) {
+    return NextResponse.json(
+      { error: "Invalid provider handle" },
+      {
+        status: 400,
+        headers: {
+          "X-RateLimit-Limit": `${CHECK_RATE_LIMIT_LIMIT}`,
+          "X-RateLimit-Remaining": `${CHECK_RATE_LIMIT_LIMIT}`,
+          "X-RateLimit-Window": `${Math.ceil(CHECK_RATE_LIMIT_WINDOW_MS / 1000)}`,
+        },
+      },
+    );
+  }
+
+  const ipAddress = getRequestIp(request);
+  const rateLimitKey = `public:booking-check:${sanitizedHandle}:${ipAddress}`;
+  const rateResult = applyRateLimit({
+    key: rateLimitKey,
+    limit: CHECK_RATE_LIMIT_LIMIT,
+    windowMs: CHECK_RATE_LIMIT_WINDOW_MS,
+  });
+
+  const baseHeaders: Record<string, string> = {
+    "X-RateLimit-Limit": `${CHECK_RATE_LIMIT_LIMIT}`,
+    "X-RateLimit-Window": `${Math.ceil(CHECK_RATE_LIMIT_WINDOW_MS / 1000)}`,
+  };
+
+  if (!rateResult.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      {
+        status: 429,
+        headers: {
+          ...baseHeaders,
+          "Retry-After": `${Math.ceil(rateResult.retryAfterMs / 1000)}`,
+          "X-RateLimit-Remaining": "0",
+        },
+      },
+    );
     return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 });
   }
 
@@ -24,6 +84,17 @@ export async function POST(request: NextRequest) {
     supabase = getServiceRoleClient();
   } catch (error) {
     console.error(error);
+    return NextResponse.json(
+      { error: "Server misconfigured" },
+      { status: 500, headers: { ...baseHeaders, "X-RateLimit-Remaining": `${rateResult.remaining}` } },
+    );
+  }
+
+  const { serviceId, date } = parsed.data;
+  const successHeaders = {
+    ...baseHeaders,
+    "X-RateLimit-Remaining": `${rateResult.remaining}`,
+  } satisfies Record<string, string>;
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
@@ -32,11 +103,17 @@ export async function POST(request: NextRequest) {
   const { data: provider, error: providerError } = await supabase
     .from("providers")
     .select("id, handle")
+    .eq("handle", sanitizedHandle)
     .eq("handle", providerHandle)
     .maybeSingle();
 
   if (providerError) {
     console.error(providerError);
+    return NextResponse.json({ error: "Unable to load provider" }, { status: 500, headers: successHeaders });
+  }
+
+  if (!provider) {
+    return NextResponse.json({ error: "Provider not found" }, { status: 404, headers: successHeaders });
     return NextResponse.json({ error: "Unable to load provider" }, { status: 500 });
   }
 
@@ -52,6 +129,11 @@ export async function POST(request: NextRequest) {
 
   if (serviceError) {
     console.error(serviceError);
+    return NextResponse.json({ error: "Unable to load service" }, { status: 500, headers: successHeaders });
+  }
+
+  if (!service || service.provider_id !== provider.id || !service.is_active) {
+    return NextResponse.json({ error: "Service not available" }, { status: 404, headers: successHeaders });
     return NextResponse.json({ error: "Unable to load service" }, { status: 500 });
   }
 
@@ -66,6 +148,7 @@ export async function POST(request: NextRequest) {
 
   if (rulesError) {
     console.error(rulesError);
+    return NextResponse.json({ error: "Unable to load availability" }, { status: 500, headers: successHeaders });
     return NextResponse.json({ error: "Unable to load availability" }, { status: 500 });
   }
 
@@ -78,6 +161,11 @@ export async function POST(request: NextRequest) {
 
   if (blackoutError) {
     console.error(blackoutError);
+    return NextResponse.json({ error: "Unable to load blackout dates" }, { status: 500, headers: successHeaders });
+  }
+
+  if (!rules || rules.length === 0) {
+    return NextResponse.json({ slots: [] }, { headers: successHeaders });
     return NextResponse.json({ error: "Unable to load blackout dates" }, { status: 500 });
   }
 
@@ -108,6 +196,7 @@ export async function POST(request: NextRequest) {
   }).filter((slot) => slot.start.startsWith(date));
 
   if (baseSlots.length === 0) {
+    return NextResponse.json({ slots: [] }, { headers: successHeaders });
     return NextResponse.json({ slots: [] });
   }
 
@@ -122,6 +211,7 @@ export async function POST(request: NextRequest) {
 
   if (bookingsError) {
     console.error(bookingsError);
+    return NextResponse.json({ error: "Unable to load bookings" }, { status: 500, headers: successHeaders });
     return NextResponse.json({ error: "Unable to load bookings" }, { status: 500 });
   }
 
@@ -134,5 +224,6 @@ export async function POST(request: NextRequest) {
     })) ?? [],
   });
 
+  return NextResponse.json({ slots: availableSlots }, { headers: successHeaders });
   return NextResponse.json({ slots: availableSlots });
 }
