@@ -117,11 +117,7 @@ export async function POST(request: NextRequest) {
   const { data: provider, error: providerError } = await supabase
     .from("providers")
     .select("id, currency, handle, display_name")
-  
     .eq("handle", sanitizedHandle)
-  
-    .eq("handle", providerHandle)
-  
     .maybeSingle();
 
   if (providerError) {
@@ -156,11 +152,6 @@ export async function POST(request: NextRequest) {
 
   if (isBefore(startDate, new Date())) {
     return NextResponse.json({ error: "Selected time is in the past" }, { status: 409, headers: successHeaders });
-    return NextResponse.json({ error: "Invalid start time" }, { status: 400 });
-  }
-
-  if (isBefore(startDate, new Date())) {
-    return NextResponse.json({ error: "Selected time is in the past" }, { status: 409 });
   }
 
   const { data: rules, error: rulesError } = await supabase
@@ -175,11 +166,6 @@ export async function POST(request: NextRequest) {
 
   if (!rules || rules.length === 0) {
     return NextResponse.json({ error: "No availability configured" }, { status: 409, headers: successHeaders });
-    return NextResponse.json({ error: "Unable to load availability" }, { status: 500 });
-  }
-
-  if (!rules || rules.length === 0) {
-    return NextResponse.json({ error: "No availability configured" }, { status: 409 });
   }
 
   const { data: blackoutDates, error: blackoutError } = await supabase
@@ -190,7 +176,6 @@ export async function POST(request: NextRequest) {
   if (blackoutError) {
     console.error(blackoutError);
     return NextResponse.json({ error: "Unable to load blackout dates" }, { status: 500, headers: successHeaders });
-    return NextResponse.json({ error: "Unable to load blackout dates" }, { status: 500 });
   }
 
   const dayStart = new Date(startDate);
@@ -218,7 +203,6 @@ export async function POST(request: NextRequest) {
 
   if (baseSlots.length === 0) {
     return NextResponse.json({ error: "Selected day has no availability" }, { status: 409, headers: successHeaders });
-    return NextResponse.json({ error: "Selected day has no availability" }, { status: 409 });
   }
 
   const { data: bookings, error: bookingsError } = await supabase
@@ -233,7 +217,6 @@ export async function POST(request: NextRequest) {
   if (bookingsError) {
     console.error(bookingsError);
     return NextResponse.json({ error: "Unable to load bookings" }, { status: 500, headers: successHeaders });
-    return NextResponse.json({ error: "Unable to load bookings" }, { status: 500 });
   }
 
   const availableSlots = filterSlotsByBookings({
@@ -250,7 +233,6 @@ export async function POST(request: NextRequest) {
 
   if (!requestedSlot) {
     return NextResponse.json({ error: "Slot no longer available" }, { status: 409, headers: successHeaders });
-    return NextResponse.json({ error: "Slot no longer available" }, { status: 409 });
   }
 
   const endDate = new Date(requestedSlot.end);
@@ -300,16 +282,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unable to create booking" }, { status: 500, headers: successHeaders });
   }
 
-  if (!booking) {
-    return NextResponse.json({ error: "Unable to create booking" }, { status: 500 });
-  }
-
   const notifications: Database["public"]["Tables"]["notifications"]["Insert"][] = [
     {
       booking_id: booking.id,
       channel: "email" as const,
       recipient: normalizedCustomerEmail,
-      recipient: customer.email,
       payload: {
         type: "booking_customer_pending" as const,
         bookingId: booking.id,
@@ -319,55 +296,6 @@ export async function POST(request: NextRequest) {
         startAt: booking.start_at,
         customerName: sanitizedCustomerName,
       },
-        customerName: customer.name,
-      },
-    },
-  ];
-
-  if (customerRow.phone) {
-    notifications.push({
-      booking_id: booking.id,
-      channel: "whatsapp" as const,
-      recipient: customerRow.phone,
-      payload: {
-        type: "booking_customer_pending" as const,
-        bookingId: booking.id,
-        providerHandle: provider.handle,
-        providerName: provider.display_name ?? provider.handle,
-        serviceName: service.name,
-        startAt: booking.start_at,
-        customerName: customer.name,
-      },
-    });
-  }
-
-  const { error: notificationError } = await supabase.from("notifications").insert(notifications);
-  const { error: notificationError } = await supabase.from("notifications").insert({
-    booking_id: booking.id,
-    channel: "email",
-    recipient: customer.email,
-    payload: {
-      type: "booking_customer_pending",
-      bookingId: booking.id,
-      providerHandle: provider.handle,
-      providerName: provider.display_name ?? provider.handle,
-      serviceName: service.name,
-      startAt: booking.start_at,
-      customerName: customer.name,
-    },
-  });
-
-  if (notificationError) {
-    console.error(notificationError);
-    return NextResponse.json({ error: "Failed to queue notification" }, { status: 500 });
-  }
-
-  return NextResponse.json({
-    booking: {
-      id: booking.id,
-      startAt: booking.start_at,
-      endAt: booking.end_at,
-      status: booking.status,
     },
   ];
 

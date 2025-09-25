@@ -32,10 +32,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   }
 
+  // Fixed: Removed duplicate .select() call
   const { data: provider, error: providerLookupError } = await authClient
     .from("providers")
     .select("id, user_id, display_name")
-    .select("id")
     .eq("id", providerId)
     .maybeSingle();
 
@@ -230,9 +230,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to confirm booking" }, { status: 500 });
   }
 
+  // Fixed: Added missing closing parenthesis and corrected method chaining
   const updateWallet = supabase
     .from("wallets")
-    .from("wallets"
     .update({ balance_credits: outcome.wallet.balanceCredits })
     .eq("id", wallet.id);
 
@@ -243,11 +243,14 @@ export async function POST(request: NextRequest) {
     description: outcome.ledgerEntry.description,
   });
 
+  // Fixed: Removed duplicate .update() calls and corrected the method chain
   const updateBooking = supabase
     .from("bookings")
-    .update({ status: "confirmed", pay_mode: "credit", updated_at: new Date().toISOString() })
-    .update({ status: "confirmed", pay_mode: "credit", updated_at: new 
-    .update({ status: "confirmed", updated_at: new Date().toISOString() })
+    .update({ 
+      status: "confirmed", 
+      pay_mode: "credit", 
+      updated_at: new Date().toISOString() 
+    })
     .eq("id", booking.id);
 
   const [walletResult, ledgerResult, bookingResult] = await Promise.all([
