@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getRouteHandlerClient } from "@/lib/supabase/server";
+import { sanitizeOtpCode } from "@/lib/utils/sanitize";
 
 const verifySchema = z.object({
   email: z.string().email("Enter a valid email address"),
-  token: z.string().min(6).max(6),
+  token: z.preprocess(
+    (value) => sanitizeOtpCode(typeof value === "string" ? value : ""),
+    z.string().length(6, "Enter the 6-digit code from your email."),
+  ),
 });
 
 export async function POST(request: Request) {
