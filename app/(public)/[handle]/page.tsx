@@ -1,9 +1,7 @@
 import { notFound } from "next/navigation";
 import { getPublicClient } from "@/lib/supabase/server";
 import type { ProviderProfile, Service, AvailabilityRule, BlackoutDate } from "@/lib/domain/types";
-import { generateBookableSlots } from "@/lib/domain/availability";
-import { ServiceList } from "@/components/service-list";
-import { AvailabilitySlotPicker } from "@/components/availability-slot-picker";
+import { PublicBookingWidget } from "@/components/public-booking-widget";
 
 interface ProviderPageData {
   provider: ProviderProfile;
@@ -19,6 +17,8 @@ const fallbackProvider: ProviderPageData = {
     handle: "demo",
     bio: "Kingston-based barber specializing in sharp fades and clean beard trims.",
     currency: "JMD",
+    rescheduleFeeCents: 0,
+    lateCancelHours: 12,
   },
   services: [
     {
@@ -54,7 +54,7 @@ async function loadProviderData(handle: string): Promise<ProviderPageData | null
     const { data, error } = await supabase
       .from("providers")
       .select(
-        `id, display_name, handle, bio, currency,
+        `id, display_name, handle, bio, currency, reschedule_fee_cents, late_cancel_hours,
          services:services(id, provider_id, name, description, duration_min, base_price_cents, is_active),
          availability_rules(id, provider_id, dow, start_time, end_time),
          blackout_dates(id, provider_id, day, reason)`
@@ -78,6 +78,8 @@ async function loadProviderData(handle: string): Promise<ProviderPageData | null
         handle: data.handle,
         bio: data.bio,
         currency: data.currency,
+        rescheduleFeeCents: data.reschedule_fee_cents ?? 0,
+        lateCancelHours: data.late_cancel_hours ?? 12,
       },
       services: (data.services ?? [])
         .filter((service: any) => service.is_active)
@@ -121,16 +123,6 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
     notFound();
   }
 
-  const primaryService = data.services[0];
-  const slots = primaryService
-    ? generateBookableSlots({
-        rules: data.availability,
-        blackoutDates: data.blackoutDates,
-        serviceDurationMin: primaryService.durationMin,
-        days: 14,
-      })
-    : [];
-
   return (
     <div className="space-y-8">
       <header className="space-y-4">
@@ -138,18 +130,13 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
         {data.provider.bio ? <p className="text-slate-300">{data.provider.bio}</p> : null}
       </header>
 
-      <section className="grid gap-6 lg:grid-cols-5">
-        <div className="space-y-4 lg:col-span-3">
-          <h2 className="text-xl font-semibold text-white">Services</h2>
-          <ServiceList services={data.services} currency={data.provider.currency} />
-        </div>
-        <div className="space-y-4 lg:col-span-2">
-          <h2 className="text-xl font-semibold text-white">Available Slots</h2>
-          <AvailabilitySlotPicker slots={slots} />
-          <p className="text-xs text-slate-400">
-            After you request a slot we’ll send confirmation by email and WhatsApp once your provider approves the booking.
-          </p>
-        </div>
+      <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-6 shadow-lg shadow-black/20">
+        <PublicBookingWidget
+          provider={data.provider}
+          services={data.services}
+          availability={data.availability}
+          blackoutDates={data.blackoutDates}
+        />
       </section>
     </div>
   );
